@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>CSUN Career Center Interactive Kiosk</title>
+    <meta
+      name="description"
+      content="Premium interactive career fair kiosk for CSUN Career Center."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell" id="app">
+      <div class="ambient ambient-left" aria-hidden="true"></div>
+      <div class="ambient ambient-right" aria-hidden="true"></div>
+      <div class="scanline-layer" aria-hidden="true"></div>
+
+      <aside class="partner-rail glass-panel" aria-label="Employer partners">
+        <div class="partner-rail__header">
+          <span class="eyebrow">Featured employer partners</span>
+          <h2>Employer Partners</h2>
+        </div>
+        <div class="partner-rail__viewport">
+          <div class="partner-rail__track" id="partner-track"></div>
+        </div>
+      </aside>
+
+      <main class="content-shell" id="content-shell">
+        <section class="screen screen-home" id="home-screen" aria-label="Interactive kiosk home screen">
+          <section class="hero-card glass-panel">
+            <img
+              src="./assets/branding/csun-career-center-logo.png"
+              alt="CSUN Career Center logo"
+              class="hero-logo"
+            />
+            <div class="hero-copy">
+              <span class="eyebrow">Interactive Kiosk</span>
+              <h1 id="event-title">Career Fair Interactive Kiosk</h1>
+              <p id="event-subtitle">
+                Explore employers, discover partner organizations, and open the live event map.
+              </p>
+            </div>
+          </section>
+
+          <section class="logo-showcase glass-panel">
+            <header class="section-header">
+              <div>
+                <span class="eyebrow">Attending employers</span>
+                <h2>Who is here today</h2>
+              </div>
+              <div class="stats-row">
+                <div class="stat-pill">
+                  <strong id="attendee-count">0</strong>
+                  <span>Attendees</span>
+                </div>
+                <div class="stat-pill">
+                  <strong id="partner-count">0</strong>
+                  <span>Partners</span>
+                </div>
+              </div>
+            </header>
+            <div class="logo-stage" id="logo-stage"></div>
+          </section>
+
+          <section class="cta-dock glass-panel">
+            <div>
+              <div class="cta-title">Open the interactive event map</div>
+              <p id="start-button-subcopy">
+                Tap below to browse the floor map and locate employers in real time.
+              </p>
+            </div>
+            <button class="primary-button" id="start-button" type="button">Start Here</button>
+          </section>
+        </section>
+
+        <section class="screen screen-map is-hidden" id="map-screen" aria-label="Interactive map view">
+          <div class="map-overlay-controls">
+            <div class="map-chip glass-panel compact-panel">
+              <img
+                src="./assets/branding/csun-career-center-logo.png"
+                alt="CSUN Career Center logo"
+                class="map-chip__logo"
+              />
+              <div>
+                <strong>Event Map</strong>
+                <span id="return-message">This kiosk returns home after a short period of inactivity.</span>
+              </div>
+            </div>
+            <div class="map-overlay-controls__right">
+              <div class="countdown-pill glass-panel compact-panel" id="countdown-pill" aria-live="polite">
+                Home in 90s
+              </div>
+              <button class="secondary-button glass-panel compact-panel" id="return-home-button" type="button">
+                Return Home
+              </button>
+            </div>
+          </div>
+
+          <div class="map-frame-shell" id="map-shell">
+            <iframe
+              id="mappedin-frame"
+              title="Mappedin Map"
+              name="Mappedin Map"
+              allow="clipboard-write 'self' https://app.mappedin.com; web-share 'self' https://app.mappedin.com"
+              scrolling="no"
+              width="100%"
+              height="100%"
+              frameborder="0"
+              style="border:0"
+            ></iframe>
+          </div>
+        </section>
+      </main>
+
+      <div class="popup-backdrop is-hidden" id="instagram-popup" role="dialog" aria-modal="true" aria-labelledby="instagram-title">
+        <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
+        <div class="popup-shell glass-panel">
+          <div class="popup-badge">Follow us</div>
+          <h2 id="instagram-title">Stay connected with the Career Center</h2>
+          <p class="popup-copy" id="instagram-headline">
+            Scan the QR code and follow us for career tips, employer highlights, and event updates.
+          </p>
+          <div class="popup-card">
+            <div class="popup-card__qr-wrap">
+              <img
+                src="./assets/qr/instagram-qr.png"
+                alt="Instagram QR code for CSUN Career Center"
+                class="popup-card__qr"
+              />
+            </div>
+            <div class="popup-card__content">
+              <div class="popup-handle" id="instagram-handle">@csuncareercenter</div>
+              <p id="instagram-body">
+                Join our online community and stay in the loop with workshops, career fair updates, employer spotlights, and quick career advice.
+              </p>
+              <a class="popup-link" id="instagram-link" href="https://www.instagram.com/csuncareercenter/" target="_blank" rel="noreferrer">
+                Open Instagram
+              </a>
+            </div>
+          </div>
+          <button class="ghost-button" id="close-popup-button" type="button">Continue to map</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
