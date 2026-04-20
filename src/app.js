@@ -69,15 +69,30 @@ const els = {
   startButton:        document.getElementById('start-button'),
   navHome:            document.getElementById('nav-home'),
 
+  // Controls (extra)
+  topbarHomeBtn:      document.getElementById('topbar-home-btn'),
+
   // Popup
   popup:              document.getElementById('instagram-popup'),
   confettiLayer:      document.getElementById('confetti-layer'),
   closePopupButton:   document.getElementById('close-popup-button'),
+  instagramCloseX:    document.getElementById('instagram-close-x'),
   instagramKicker:    document.getElementById('instagram-kicker'),
   instagramTitle:     document.getElementById('instagram-title'),
   instagramHeadline:  document.getElementById('instagram-headline'),
   instagramHandle:    document.getElementById('instagram-handle'),
   instagramBody:      document.getElementById('instagram-body'),
+
+  // Event detail modal
+  eventModal:         document.getElementById('event-detail-modal'),
+  eventModalScroll:   document.getElementById('event-detail-scroll'),
+  eventModalClose:    document.getElementById('event-detail-close'),
+  eventModalHero:     document.getElementById('event-detail-hero'),
+  eventModalDate:     document.getElementById('event-detail-date'),
+  eventModalVenue:    document.getElementById('event-detail-venue'),
+  eventModalCost:     document.getElementById('event-detail-cost'),
+  eventModalTitle:    document.getElementById('event-detail-title'),
+  eventModalContent:  document.getElementById('event-detail-content'),
 };
 
 // ─── VIEW META ───────────────────────────────────────────
@@ -236,13 +251,124 @@ function buildTicker() {
   els.logoTickerTrack.classList.add('is-running');
 }
 
-// ─── EVENTS FEED (Info view) ─────────────────────────────
+// ─── EVENTS FEED (More Events view) ──────────────────────
 const EVENTS_API = 'https://news.csun.edu/wp-json/csunfeeds/v1/events-feed/career-center';
 
 function stripHtml(html) {
   const d = document.createElement('div');
   d.innerHTML = html;
   return d.textContent || d.innerText || '';
+}
+
+// The feed returns `featured_image` as an OBJECT with .url + .sizes, not a string.
+// Pick the best available size in order of preference.
+function getEventImage(ev) {
+  const fi = ev.featured_image;
+  if (fi && typeof fi === 'object') {
+    return (fi.sizes && (fi.sizes.medium?.url || fi.sizes.large?.url || fi.sizes.full?.url))
+        || fi.url
+        || '';
+  }
+  if (typeof fi === 'string') return fi;
+  return ev.image || ev.thumbnail || '';
+}
+
+// Try hardest to return a JS Date from whatever the feed supplies.
+function getEventStartDate(ev) {
+  const raw = ev.event_object?.start_date
+           || ev.event_object?.dates?.start?.date
+           || ev.start_date
+           || ev.published_date
+           || ev.date
+           || '';
+  if (!raw) return null;
+  // "2026-04-21 10:00:00" needs to be normalized for Safari
+  const normalized = typeof raw === 'string' ? raw.replace(' ', 'T') : raw;
+  const d = new Date(normalized);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function formatEventDate(d) {
+  if (!d) return '';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function formatEventTime(d) {
+  if (!d) return '';
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function getEventTitle(ev) {
+  return stripHtml(ev.title || ev.event_object?.post_title || '');
+}
+
+function getEventVenue(ev) {
+  const v = ev.event_object?.venues?.[0];
+  if (!v) return '';
+  return v.post_title || '';
+}
+
+function getEventCost(ev) {
+  const c = ev.event_object?.cost;
+  if (!c) return '';
+  return c;
+}
+
+// The feed's `content` field is the full HTML (with embedded images and links).
+// We want to keep images + basic formatting but strip anything dangerous.
+function sanitizeContentHtml(html) {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+  const root = doc.body.firstElementChild;
+  if (!root) return '';
+
+  const ALLOWED = new Set([
+    'P','BR','STRONG','B','EM','I','U','SPAN','DIV',
+    'UL','OL','LI','A','IMG','H1','H2','H3','H4','H5','H6',
+    'HR','BLOCKQUOTE'
+  ]);
+
+  const walk = (node) => {
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType === 1) { // element
+        const tag = child.tagName;
+        if (!ALLOWED.has(tag)) {
+          // Replace with its text content, preserving inner markup we do allow.
+          while (child.firstChild) node.insertBefore(child.firstChild, child);
+          node.removeChild(child);
+          continue;
+        }
+        // Strip all attributes except a safe subset per tag
+        const attrs = Array.from(child.attributes);
+        for (const a of attrs) {
+          const name = a.name.toLowerCase();
+          const keep =
+            (tag === 'A' && (name === 'href' || name === 'title')) ||
+            (tag === 'IMG' && (name === 'src' || name === 'alt' || name === 'width' || name === 'height'));
+          if (!keep) child.removeAttribute(a.name);
+        }
+        // Force images to load lazily and constrain size via CSS in the modal.
+        if (tag === 'IMG') {
+          const src = child.getAttribute('src') || '';
+          if (src.startsWith('javascript:') || src.startsWith('data:text')) child.remove();
+          else child.setAttribute('loading', 'lazy');
+          continue;
+        }
+        if (tag === 'A') {
+          // Links are non-clickable inside the kiosk (CSS pointer-events:none),
+          // but still neutralize javascript:.
+          const href = child.getAttribute('href') || '';
+          if (href.startsWith('javascript:')) child.removeAttribute('href');
+        }
+        walk(child);
+      } else if (child.nodeType === 8) { // comment
+        node.removeChild(child);
+      }
+    }
+  };
+  walk(root);
+  return root.innerHTML;
 }
 
 async function loadEvents() {
@@ -269,54 +395,71 @@ async function loadEvents() {
       return;
     }
 
-    events.slice(0, 20).forEach((ev) => {
+    clearChildren(els.eventsGrid);
+
+    events.slice(0, 24).forEach((ev) => {
       const card = document.createElement('article');
       card.className = 'event-card';
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
 
-      const img = ev.image || ev.featured_image || ev.thumbnail || '';
+      const imgUrl = getEventImage(ev);
       const imgEl = document.createElement('div');
-      if (img) {
+      if (imgUrl) {
         imgEl.className = 'event-card__img';
-        imgEl.style.backgroundImage = `url(${img})`;
+        imgEl.style.backgroundImage = `url("${imgUrl.replace(/"/g, '\\"')}")`;
       } else {
         imgEl.className = 'event-card__img event-card__img--placeholder';
-        imgEl.innerHTML = `<svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="#ccc" stroke-width="2"><rect x="4" y="8" width="40" height="32" rx="3"/><path d="M4 18h40"/><circle cx="14" cy="13" r="2" fill="#ccc"/><circle cx="34" cy="13" r="2" fill="#ccc"/></svg>`;
+        imgEl.innerHTML = '<svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="#ccc" stroke-width="2"><rect x="4" y="8" width="40" height="32" rx="3"/><path d="M4 18h40"/><circle cx="14" cy="13" r="2" fill="#ccc"/><circle cx="34" cy="13" r="2" fill="#ccc"/></svg>';
       }
       card.appendChild(imgEl);
 
       const body = document.createElement('div');
       body.className = 'event-card__body';
 
-      const dateStr = ev.start_date || ev.date || ev.event_date || '';
-      if (dateStr) {
+      const start = getEventStartDate(ev);
+      if (start) {
         const dateEl = document.createElement('div');
         dateEl.className = 'event-card__date';
-        try {
-          const d = new Date(dateStr);
-          dateEl.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-        } catch {
-          dateEl.textContent = dateStr;
-        }
+        dateEl.textContent = formatEventDate(start);
         body.appendChild(dateEl);
+
+        const timeEl = document.createElement('div');
+        timeEl.className = 'event-card__time';
+        timeEl.textContent = formatEventTime(start);
+        body.appendChild(timeEl);
       }
 
-      const title = ev.title || ev.name || '';
+      const title = getEventTitle(ev);
       if (title) {
         const h = document.createElement('h3');
         h.className = 'event-card__title';
-        h.textContent = stripHtml(title);
+        h.textContent = title;
         body.appendChild(h);
       }
 
-      const desc = ev.description || ev.excerpt || ev.content || '';
-      if (desc) {
+      const excerptSrc = ev.excerpt || ev.event_object?.excerpt || ev.content || '';
+      if (excerptSrc) {
         const p = document.createElement('p');
         p.className = 'event-card__desc';
-        p.textContent = stripHtml(desc).substring(0, 160) + '…';
+        const text = stripHtml(excerptSrc).replace(/Continue reading.*$/i, '').trim();
+        p.textContent = text.length > 140 ? text.slice(0, 140).trimEnd() + '…' : text;
         body.appendChild(p);
       }
 
+      const hint = document.createElement('div');
+      hint.className = 'event-card__tap-hint';
+      hint.textContent = 'Tap for details →';
+      body.appendChild(hint);
+
       card.appendChild(body);
+
+      const open = () => openEventDetail(ev);
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+
       els.eventsGrid.appendChild(card);
     });
   } catch (err) {
@@ -324,6 +467,65 @@ async function loadEvents() {
     if (els.eventsLoading) els.eventsLoading.style.display = 'none';
     els.eventsGrid.innerHTML = '<p class="events-empty">Unable to load events at this time.</p>';
   }
+}
+
+// ─── EVENT DETAIL MODAL ──────────────────────────────────
+function openEventDetail(ev) {
+  if (!els.eventModal) return;
+
+  // Hero image
+  const heroUrl = getEventImage(ev);
+  if (heroUrl) {
+    els.eventModalHero.classList.remove('is-empty');
+    els.eventModalHero.style.backgroundImage = `url("${heroUrl.replace(/"/g, '\\"')}")`;
+  } else {
+    els.eventModalHero.classList.add('is-empty');
+    els.eventModalHero.style.backgroundImage = '';
+  }
+
+  // Date / time pill
+  const start = getEventStartDate(ev);
+  const plain = ev.event_object?.plain_schedule_details;
+  els.eventModalDate.textContent =
+    plain || (start ? `${formatEventDate(start)} · ${formatEventTime(start)}` : 'Date TBA');
+
+  // Venue pill
+  const venue = getEventVenue(ev);
+  if (venue) {
+    els.eventModalVenue.textContent = venue;
+    els.eventModalVenue.classList.remove('is-hidden');
+  } else {
+    els.eventModalVenue.classList.add('is-hidden');
+  }
+
+  // Cost pill
+  const cost = getEventCost(ev);
+  if (cost) {
+    els.eventModalCost.textContent = /free/i.test(cost) ? `Free` : `${cost}`;
+    els.eventModalCost.classList.remove('is-hidden');
+  } else {
+    els.eventModalCost.classList.add('is-hidden');
+  }
+
+  // Title
+  els.eventModalTitle.textContent = getEventTitle(ev);
+
+  // Content (full HTML with embedded images), sanitized
+  const contentHtml = ev.content || ev.event_object?.post_content || '';
+  els.eventModalContent.innerHTML = sanitizeContentHtml(contentHtml);
+
+  els.eventModalScroll.scrollTop = 0;
+  els.eventModal.classList.remove('is-hidden');
+  els.app.classList.add('is-modal-open');
+}
+
+function closeEventDetail() {
+  if (!els.eventModal) return;
+  els.eventModal.classList.add('is-hidden');
+  els.app.classList.remove('is-modal-open');
+  // Free image memory
+  els.eventModalHero.style.backgroundImage = '';
+  els.eventModalContent.innerHTML = '';
 }
 
 // ─── PROXY-BACKED WEB LOADER ─────────────────────────────
@@ -513,6 +715,7 @@ function setView(viewId) {
 function goHome() {
   setView('home');
   closePopup();
+  closeEventDetail();
 }
 
 function restartSession() {
@@ -602,7 +805,17 @@ function bindEvents() {
   });
 
   if (els.closePopupButton) els.closePopupButton.addEventListener('click', () => { closePopup(); setView('map'); });
+  if (els.instagramCloseX)  els.instagramCloseX.addEventListener('click', closePopup);
   if (els.popup) els.popup.addEventListener('click', (e) => { if (e.target === els.popup) closePopup(); });
+
+  // Event detail modal
+  if (els.eventModalClose) els.eventModalClose.addEventListener('click', closeEventDetail);
+  if (els.eventModal) els.eventModal.addEventListener('click', (e) => {
+    if (e.target === els.eventModal) closeEventDetail();
+  });
+
+  // Header home button (visible only in map view via CSS)
+  if (els.topbarHomeBtn) els.topbarHomeBtn.addEventListener('click', () => goHome());
 
   // Kiosk "expand" buttons toggle fullscreen on the iframe section
   const toggleExpand = (sectionEl) => {
