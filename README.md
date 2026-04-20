@@ -1,66 +1,46 @@
 # CSUN Career Center Interactive Kiosk
 
-A premium, light-mode, GitHub Pages-ready kiosk for career fairs.
+This repo now supports two runtime modes:
 
-## Deploy on GitHub Pages
+1. **Static browser mode** for quick previews and GitHub Pages.
+2. **Electron kiosk shell mode** for the Website and Partners panels, which need a real Chromium webview instead of an iframe.
 
-1. Upload the repo to GitHub.
-2. Go to **Settings -> Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Select **main** and **/(root)**.
-5. Save.
+## Why the website panels changed
 
-This repo is static HTML/CSS/JS, so it does **not** require Vite, npm, or GitHub Actions.
+Some external sites block normal iframe embedding. That is why the earlier version showed "refused to connect." This repo now uses:
 
-## What to edit
+- **standard browser fallback** when you open the project as a normal website
+- **Electron webview rendering** when you run the included kiosk shell
 
-### Event copy
-Edit these files:
-- `src/config/event.js`
-- `src/config/popup.js`
+## Run as a kiosk app
 
-### Map link
-Edit:
-- `src/config/map.js`
+1. Install Node.js.
+2. Run:
+   - `npm install`
+   - `npm run kiosk`
 
-### Timing
-Edit:
-- `src/config/timing.js`
+This launches the kiosk in a desktop shell with Chromium webviews enabled for Website and Partners.
 
-### Add logos
-Drop logo files into:
-- `assets/employers/attendees/`
-- `assets/employers/partners/`
+## Static preview / GitHub Pages
 
-Supported file types:
-- png
-- jpg
-- jpeg
-- svg
-- webp
-- avif
+You can still publish the repo as a static site, but Website and Partners will show a graceful fallback panel instead of trying to force blocked pages into an iframe.
 
-The kiosk reads those folders from the GitHub repo using the GitHub Contents API at runtime, then caches the results in the browser for faster reloads.
+## Main editable files
 
-## Core behavior
-
-- **Home / attract mode** shows attendee logos in animated pages.
-- **Employer partners** stay visible in a dedicated premium section.
-- **Start Here** opens the full-screen Mappedin map.
-- **Instagram popup** appears once per session.
-- **Inactivity timeout** returns the kiosk to home and resets the session.
+- `src/config/map.js` — Mappedin URL, website URL, partners URL
+- `src/config/event.js` — event text, info panel content
+- `src/config/popup.js` — Instagram popup copy and link
+- `src/config/timing.js` — inactivity and popup timing
+- `assets/employers/attendees/` — attendee logos
+- `assets/employers/partners/` — partner logos
+- `assets/qr/instagram-qr.png` — Instagram QR
 
 ## Repo structure
 
 - `index.html`
 - `styles/main.css`
 - `src/app.js`
-- `src/config/event.js`
-- `src/config/map.js`
-- `src/config/popup.js`
-- `src/config/timing.js`
-- `src/config/logos.js`
-- `assets/branding/csun-career-center-logo.png`
-- `assets/qr/instagram-qr.png`
-- `assets/employers/attendees/`
-- `assets/employers/partners/`
+- `src/config/`
+- `electron/main.js`
+- `electron/preload.js`
+- `package.json`

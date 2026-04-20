@@ -1,0 +1,13 @@
+{
+  "name": "interactive-kiosk",
+  "version": "1.2.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "kiosk": "electron .",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.7.7"
+  }
+}
