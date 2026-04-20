@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f7f3ef" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="CSUN Career Center interactive kiosk for career fair wayfinding and employer discovery." />
     <title>CSUN Career Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,165 +13,242 @@
   </head>
   <body>
     <div class="app" id="app" data-view="home">
-      <div class="ambient-glow ambient-glow--one"></div>
-      <div class="ambient-glow ambient-glow--two"></div>
 
-      <header class="topbar" id="topbar">
+      <!-- ══════════════════════════════════════
+           HEADER (always visible)
+      ═══════════════════════════════════════ -->
+      <header class="topbar">
         <div class="brand-lockup">
           <img src="./assets/branding/csun-career-center-logo.png" alt="CSUN Career Center" class="brand-logo" />
+          <div class="topbar-headline">
+            <div class="topbar-title">Welcome to the <span id="event-label-pill">Career Fair</span>!</div>
+            <div class="topbar-subtitle">Find your next opportunity</div>
+          </div>
         </div>
         <div class="topbar-meta">
-          <div class="meta-label" id="event-label-pill">Career Fair</div>
-          <div class="meta-pill" id="event-date">Spring 2026</div>
+          <div class="countdown-chip is-hidden" id="countdown-pill" aria-live="polite">Home in 90s</div>
+          <div class="meta-pill" id="event-date">Spring 2025</div>
         </div>
       </header>
 
-      <main class="app-main">
-        <div class="stage-shell" id="stage-shell">
-          <section class="stage-view stage-view--home is-active" id="view-home" aria-label="Idle attract mode">
-            <div class="home-grid">
-              <section class="premium-panel premium-panel--partners">
-                <div class="section-heading">
-                  <span class="section-kicker">Employer Partners</span>
-                  <h1 class="section-title" id="home-hero-title">Premium employers helping power this experience.</h1>
-                  <p class="section-copy" id="home-hero-copy">Explore the fair map, discover attending employers, and connect with the CSUN Career Center.</p>
-                </div>
-                <div class="partner-showcase" id="partner-showcase">
-                  <div class="partner-empty-hint">Add partner logos to <code>assets/employers/partners/</code></div>
-                </div>
-              </section>
+      <!-- ══════════════════════════════════════
+           MAIN LAYOUT (content + sidebar + footer)
+      ═══════════════════════════════════════ -->
+      <div class="stage">
 
-              <section class="premium-panel premium-panel--attendees">
-                <div class="section-heading section-heading--compact">
-                  <span class="section-kicker">Attending Employers</span>
-                  <h2 class="section-title section-title--small">Who is here today</h2>
-                </div>
-                <div class="logo-marquee-shell" id="logo-marquee-shell">
-                  <div class="logo-marquee-track" id="logo-marquee-track"></div>
-                </div>
-              </section>
-            </div>
+        <!-- ── CONTENT AREA (switches between views) ── -->
+        <div class="stage-body">
+
+          <!-- MAP VIEW: fullscreen under the header (footer + sidebar hide) -->
+          <section class="view view--map" id="view-map" aria-hidden="true">
+            <iframe
+              id="mappedin-frame"
+              title="Mappedin Map"
+              name="Mappedin Map"
+              allow="clipboard-write 'self' https://app.mappedin.com; web-share 'self' https://app.mappedin.com"
+              scrolling="no"
+              frameborder="0"
+            ></iframe>
           </section>
 
-          <section class="stage-view stage-view--panel" id="view-panel" aria-label="Content panel">
-            <div class="panel-card" id="panel-card">
-              <div class="panel-card__header">
-                <div>
-                  <div class="panel-card__kicker" id="panel-kicker">Info</div>
-                  <h2 class="panel-card__title" id="panel-title">Career Fair Information</h2>
-                </div>
-                <button class="ghost-button" id="panel-home-button" type="button">Return Home</button>
-              </div>
+          <!-- MAIN PANEL — home, website, info, partners render here -->
+          <div class="main-panel" id="main-panel">
 
-              <div class="panel-card__body" id="panel-body">
-                <div class="panel-card__copy" id="panel-copy"></div>
+            <!-- HOME VIEW -->
+            <section class="view view--home is-active" id="view-home">
 
-                <div class="browser-panel" id="browser-panel">
-                  <div class="browser-panel__chrome">
-                    <div class="browser-dot-group" aria-hidden="true">
-                      <span></span><span></span><span></span>
-                    </div>
-                    <div class="browser-url" id="browser-url">https://www.csun.edu/career</div>
-                    <button class="ghost-button ghost-button--small" id="open-external-button" type="button">Open External</button>
+              <!-- FEATURED EMPLOYERS (Partners) -->
+              <div class="featured-section">
+                <div class="diamond-badge-wrap">
+                  <div class="diamond-badge-chevrons diamond-badge-chevrons--left">
+                    <span class="chev chev--1"></span><span class="chev chev--2"></span>
                   </div>
-                  <div class="browser-panel__viewport">
-                    <webview id="browser-webview" class="browser-webview" allowpopups partition="persist:kiosk"></webview>
-                    <div class="browser-fallback" id="browser-fallback">
-                      <div class="browser-fallback__badge">Web preview fallback</div>
-                      <h3 class="browser-fallback__title">This page is configured for the desktop kiosk shell.</h3>
-                      <p class="browser-fallback__body" id="browser-fallback-body">
-                        Some external pages block standard iframe embedding. The included Electron kiosk shell loads these pages in a Chromium webview instead.
-                      </p>
-                      <div class="browser-fallback__actions">
-                        <button class="primary-button primary-button--small" id="open-external-fallback" type="button">Open in browser</button>
-                      </div>
+                  <div class="badge-inner">
+                    <div class="badge-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 21h18M6 21V7l6-4 6 4v14M9 21v-6h6v6"/>
+                      </svg>
                     </div>
+                    Featured Employers
+                  </div>
+                  <div class="diamond-badge-chevrons diamond-badge-chevrons--right">
+                    <span class="chev chev--2"></span><span class="chev chev--1"></span>
                   </div>
                 </div>
-
-                <div class="info-grid" id="info-grid"></div>
-                <div class="partners-grid" id="partners-grid"></div>
+                <div class="partner-scroll-shell">
+                  <div class="partner-logos-row" id="partner-logos-row">
+                    <div class="partner-empty-hint">Add partner logos to <code>assets/employers/partners/</code></div>
+                  </div>
+                </div>
               </div>
+
+              <!-- ATTENDING EMPLOYERS — animated ticker -->
+              <div class="attendees-section">
+                <div class="section-label">Participating Employers</div>
+                <div class="logo-ticker-shell" id="logo-ticker-shell">
+                  <div class="logo-ticker-track" id="logo-ticker-track"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- WEBSITE VIEW -->
+            <section class="view view--web" id="view-website" aria-hidden="true">
+              <div class="web-toolbar">
+                <div class="web-toolbar__title" id="web-title">CSUN Career Center</div>
+                <div class="web-toolbar__url" id="web-url"></div>
+                <button class="web-toolbar__btn" id="web-open-external" type="button" title="Open in full screen">Expand</button>
+              </div>
+              <div class="web-stage">
+                <div class="web-loading" id="web-loading">
+                  <div class="spinner"></div>
+                  <span id="web-loading-text">Loading…</span>
+                </div>
+                <iframe
+                  id="website-frame"
+                  class="web-frame"
+                  title="Embedded site"
+                  frameborder="0"
+                  allow="clipboard-write; web-share"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                ></iframe>
+                <div class="web-fallback is-hidden" id="web-fallback">
+                  <div class="web-fallback__icon">
+                    <svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+                  </div>
+                  <div class="web-fallback__title">Preview not available</div>
+                  <p class="web-fallback__text" id="web-fallback-text">
+                    This site couldn't be loaded inside the kiosk. Scan the QR code or visit the URL below on your phone.
+                  </p>
+                  <div class="web-fallback__url" id="web-fallback-url"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- INFO VIEW (events feed) -->
+            <section class="view view--info" id="view-info" aria-hidden="true">
+              <div class="web-toolbar">
+                <div class="web-toolbar__title">Career Center Info &amp; Events</div>
+              </div>
+              <div class="events-container" id="events-container">
+                <div class="events-loading" id="events-loading">
+                  <div class="spinner"></div>
+                  <span>Loading upcoming events…</span>
+                </div>
+                <div class="events-grid" id="events-grid"></div>
+              </div>
+            </section>
+
+            <!-- PARTNERS VIEW -->
+            <section class="view view--web" id="view-partners" aria-hidden="true">
+              <div class="web-toolbar">
+                <div class="web-toolbar__title">Our Employer Partners</div>
+                <div class="web-toolbar__url" id="partners-url"></div>
+                <button class="web-toolbar__btn" id="partners-open-external" type="button" title="Open in full screen">Expand</button>
+              </div>
+              <div class="web-stage">
+                <div class="web-loading" id="partners-loading">
+                  <div class="spinner"></div>
+                  <span>Loading partners…</span>
+                </div>
+                <iframe
+                  id="partners-frame"
+                  class="web-frame"
+                  title="Employer Partners"
+                  frameborder="0"
+                  allow="clipboard-write; web-share"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                ></iframe>
+                <div class="web-fallback is-hidden" id="partners-fallback">
+                  <div class="web-fallback__icon">
+                    <svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </div>
+                  <div class="web-fallback__title">Preview not available</div>
+                  <p class="web-fallback__text">This site couldn't be loaded inside the kiosk. Visit the URL below on your phone.</p>
+                  <div class="web-fallback__url" id="partners-fallback-url"></div>
+                </div>
+              </div>
+            </section>
+
+          </div><!-- /main-panel -->
+        </div><!-- /stage-body -->
+
+        <!-- ══════════════════════════════════════
+             SIDEBAR  (single, light grey menu)
+        ═══════════════════════════════════════ -->
+        <aside class="sidebar" aria-label="Directory">
+          <button class="sidebar-item" data-view="map" type="button">
+            <div class="sidebar-item__icon">
+              <svg viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
             </div>
-          </section>
-        </div>
+            <span class="sidebar-item__label">Map</span>
+          </button>
 
-        <section class="map-stage" id="map-stage" aria-label="Interactive map mode">
-          <iframe
-            id="mappedin-frame"
-            title="Mappedin Map"
-            name="Mappedin Map"
-            allow="clipboard-write 'self' https://app.mappedin.com; web-share 'self' https://app.mappedin.com"
-            scrolling="no"
-            width="100%"
-            height="100%"
-            frameborder="0"
-            style="border:0"
-          ></iframe>
-          <div class="map-overlay map-overlay--top">
-            <div class="map-chip" id="map-toolbar-title">Career Fair Map</div>
-            <div class="map-chip map-chip--countdown" id="countdown-pill">Home in 90s</div>
+          <button class="sidebar-item" data-view="website" type="button">
+            <div class="sidebar-item__icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+            </div>
+            <span class="sidebar-item__label">Website</span>
+          </button>
+
+          <button class="sidebar-item" data-view="info" type="button">
+            <div class="sidebar-item__icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+            </div>
+            <span class="sidebar-item__label">Info</span>
+          </button>
+
+          <button class="sidebar-item" data-view="partners" type="button">
+            <div class="sidebar-item__icon">
+              <svg viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <span class="sidebar-item__label">Partners</span>
+          </button>
+
+          <div class="sidebar-spacer"></div>
+
+          <button class="sidebar-item sidebar-item--home" data-view="home" id="nav-home" type="button">
+            <div class="sidebar-item__icon">
+              <svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            </div>
+            <span class="sidebar-item__label">Home</span>
+          </button>
+        </aside>
+
+        <!-- ══════════════════════════════════════
+             FOOTER (hidden in Map view)
+        ═══════════════════════════════════════ -->
+        <footer class="cta-bar" id="cta-bar">
+          <div class="cta-copy">
+            <div class="cta-label">Touch to begin</div>
+            <p class="cta-text" id="cta-text">Explore the fair map and find employers.</p>
           </div>
-          <div class="map-overlay map-overlay--bottom">
-            <button class="ghost-button ghost-button--light" id="restart-session-button" type="button">Restart Session</button>
-            <button class="primary-button primary-button--small" id="return-home-button" type="button">Back to Home</button>
-          </div>
-        </section>
+          <button class="primary-cta" id="start-button" type="button">Start Here</button>
+        </footer>
+      </div><!-- /stage -->
 
-        <nav class="menu-rail" id="menu-rail" aria-label="Primary kiosk navigation">
-          <button class="menu-item" data-view="map" type="button">
-            <span class="menu-item__icon">⌖</span>
-            <span class="menu-item__label">Map</span>
-          </button>
-          <button class="menu-item" data-view="website" type="button">
-            <span class="menu-item__icon">◫</span>
-            <span class="menu-item__label">Website</span>
-          </button>
-          <button class="menu-item" data-view="info" type="button">
-            <span class="menu-item__icon">i</span>
-            <span class="menu-item__label">Info</span>
-          </button>
-          <button class="menu-item" data-view="partners" type="button">
-            <span class="menu-item__icon">★</span>
-            <span class="menu-item__label">Partners</span>
-          </button>
-        </nav>
-      </main>
-
-      <footer class="footer-bar" id="footer-bar">
-        <div class="footer-copy">
-          <div class="footer-label" id="footer-label">Touch to begin</div>
-          <p class="footer-text" id="cta-text">Explore the fair map and find employers.</p>
-        </div>
-        <div class="footer-actions">
-          <button class="ghost-button" id="footer-secondary-button" type="button">Return Home</button>
-          <button class="primary-button" id="start-button" type="button">Start Here</button>
-        </div>
-      </footer>
-
+      <!-- ══════════════════════════════════════
+           INSTAGRAM POPUP
+      ═══════════════════════════════════════ -->
       <div class="modal-backdrop is-hidden" id="instagram-popup" role="dialog" aria-modal="true" aria-labelledby="instagram-title">
         <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
         <div class="instagram-modal">
           <div class="modal-kicker" id="instagram-kicker">Follow us</div>
           <h2 class="modal-title" id="instagram-title">Follow us for career tips, events, and student success stories</h2>
+          <p class="modal-copy" id="instagram-headline">Scan to connect with @csuncareercenter</p>
           <div class="instagram-modal__content">
             <div class="qr-card">
-              <img src="./assets/qr/instagram-qr.png" alt="Instagram QR code" class="qr-card__image" />
+              <img src="./assets/qr/instagram-qr.png" alt="Instagram QR code for CSUN Career Center" class="qr-card__image" />
             </div>
             <div class="instagram-card">
-              <div class="instagram-headline" id="instagram-headline">Scan to connect with @csuncareercenter</div>
               <div class="instagram-handle" id="instagram-handle">@csuncareercenter</div>
               <p class="instagram-body" id="instagram-body">Scan the code to follow the Career Center and stay updated on upcoming fairs, workshops, employer highlights, and student success stories.</p>
-              <div class="instagram-actions">
-                <button class="ghost-button" id="close-popup-button" type="button">Maybe later</button>
-                <button class="primary-button primary-button--small" id="instagram-link" type="button">Open Instagram</button>
-              </div>
             </div>
           </div>
+          <button class="secondary-cta" id="close-popup-button" type="button">Continue to map &#8594;</button>
         </div>
       </div>
-    </div>
 
+    </div>
     <script type="module" src="./src/app.js"></script>
   </body>
 </html>
