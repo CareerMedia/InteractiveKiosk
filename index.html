@@ -3,99 +3,108 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f6f3ef" />
-    <meta
-      name="description"
-      content="CSUN Career Center premium interactive kiosk for career fair wayfinding and employer discovery."
-    />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="CSUN Career Center interactive kiosk for career fair wayfinding and employer discovery." />
     <title>CSUN Career Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
     <div class="app" id="app">
-      <div class="ambient ambient-a" aria-hidden="true"></div>
-      <div class="ambient ambient-b" aria-hidden="true"></div>
-      <div class="ambient ambient-c" aria-hidden="true"></div>
 
       <section class="screen home-screen" id="home-screen" aria-label="Career fair kiosk home screen">
-        <header class="topbar glass-card">
-          <div class="brand-lockup">
-            <img
-              src="./assets/branding/csun-career-center-logo.png"
-              alt="CSUN Career Center"
-              class="brand-logo"
-            />
-          </div>
 
-          <div class="topbar-meta" id="topbar-meta">
-            <div class="meta-pill" id="event-label-pill">Career Fair</div>
-            <div class="meta-stack">
-              <div class="meta-title" id="event-title">Find your next opportunity</div>
-              <div class="meta-subtitle" id="event-date">Tap to explore the live event map</div>
+        <header class="topbar">
+          <div class="brand-lockup">
+            <img src="./assets/branding/csun-career-center-logo.png" alt="CSUN Career Center" class="brand-logo" />
+            <div class="topbar-headline">
+              <div class="topbar-title">Welcome to the <span id="event-label-pill">Career Fair</span>!</div>
+              <div class="topbar-subtitle" id="topbar-subtitle">Find your next opportunity</div>
             </div>
+          </div>
+          <div class="topbar-meta">
+            <div class="meta-pill" id="event-date">Spring 2025</div>
           </div>
         </header>
 
-        <main class="home-layout">
-          <section class="hero-panel glass-card">
-            <div class="hero-copy">
-              <div class="eyebrow" id="hero-eyebrow">Welcome</div>
-              <h1 class="hero-title" id="hero-title">Find your next opportunity.</h1>
-              <p class="hero-description" id="hero-description">
-                Explore the fair map, discover employers, and connect with featured partners.
-              </p>
-            </div>
+        <div class="home-layout">
 
-            <div class="attendee-panel">
-              <div class="section-heading-row">
-                <div>
-                  <div class="section-eyebrow">Attending employers</div>
-                  <h2 class="section-title">Who is here today</h2>
+          <div class="main-panel">
+
+            <div class="featured-section">
+              <div class="diamond-badge-wrap">
+                <div style="display:flex;align-items:center;gap:3px;">
+                  <div style="width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-right:20px solid #d22030;opacity:0.45;"></div>
+                  <div style="width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-right:20px solid #d22030;opacity:0.8;"></div>
                 </div>
-                <div class="section-stat" aria-live="polite">
-                  <span class="section-stat__value" id="attendee-count">0</span>
-                  <span class="section-stat__label">Logos</span>
+                <div class="badge-inner">
+                  <div class="badge-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 21h18M6 21V7l6-4 6 4v14M9 21v-6h6v6"/>
+                    </svg>
+                  </div>
+                  Featured Employers
+                </div>
+                <div style="display:flex;align-items:center;gap:3px;">
+                  <div style="width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-left:20px solid #d22030;opacity:0.8;"></div>
+                  <div style="width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-left:20px solid #d22030;opacity:0.45;"></div>
                 </div>
               </div>
+              <div class="partner-logos-row" id="partner-logos-row">
+                <div class="partner-empty-hint">Add partner logos to <code>assets/employers/partners/</code></div>
+              </div>
+            </div>
 
+            <div class="attendees-section">
+              <div class="section-label">Participating Employers</div>
               <div class="logo-stage-wrap">
                 <div class="logo-stage" id="logo-stage"></div>
-                <div class="page-dots" id="page-dots" aria-hidden="true"></div>
               </div>
+              <div class="page-dots" id="page-dots" aria-hidden="true"></div>
             </div>
-          </section>
+          </div>
 
-          <aside class="partner-panel glass-card" aria-label="Employer partners">
-            <div class="section-heading-row section-heading-row--partner">
-              <div>
-                <div class="section-eyebrow section-eyebrow--accent">Employer partners</div>
-                <h2 class="section-title">Featured partners</h2>
+          <aside class="sidebar" aria-label="Quick navigation">
+            <button class="sidebar-item" type="button" title="Map" onclick="document.getElementById('start-button').click()">
+              <div class="sidebar-item__icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                </svg>
               </div>
-              <div class="section-stat" aria-live="polite">
-                <span class="section-stat__value" id="partner-count">0</span>
-                <span class="section-stat__label">Featured</span>
+              <span class="sidebar-item__label">Map</span>
+            </button>
+            <div class="sidebar-item">
+              <div class="sidebar-item__icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
               </div>
+              <span class="sidebar-item__label">Restrooms</span>
             </div>
-
-            <div class="partner-subcopy" id="partner-subcopy">
-              Proud supporters helping power the CSUN Career Center experience.
+            <div class="sidebar-item">
+              <div class="sidebar-item__icon">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+                </svg>
+              </div>
+              <span class="sidebar-item__label">Info</span>
             </div>
-
-            <div class="partner-track-shell">
-              <div class="partner-track" id="partner-track"></div>
+            <div class="sidebar-item">
+              <div class="sidebar-item__icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <span class="sidebar-item__label">Employers</span>
             </div>
           </aside>
-        </main>
+        </div>
 
-        <footer class="cta-bar glass-card">
+        <footer class="cta-bar">
           <div class="cta-copy">
-            <div class="cta-label">Start here</div>
+            <div class="cta-label">Touch to begin</div>
             <p class="cta-text" id="cta-text">Explore the fair map and find employers.</p>
           </div>
           <button class="primary-cta" id="start-button" type="button">Start Here</button>
@@ -103,29 +112,21 @@
       </section>
 
       <section class="screen map-screen is-hidden" id="map-screen" aria-label="Career fair map screen">
-        <div class="map-shell glass-card">
+        <div class="map-shell">
           <div class="map-toolbar">
-            <div class="map-brand glass-float">
-              <img
-                src="./assets/branding/csun-career-center-logo.png"
-                alt="CSUN Career Center"
-                class="map-brand__logo"
-              />
+            <div class="map-brand">
+              <img src="./assets/branding/csun-career-center-logo.png" alt="CSUN Career Center" class="map-brand__logo" />
               <div class="map-brand__copy">
                 <strong id="map-toolbar-title">Career Fair Map</strong>
-                <span id="return-message">Returns home after a short period of inactivity.</span>
+                <span id="return-message">Returns home after inactivity.</span>
               </div>
             </div>
-
             <div class="map-controls">
-              <div class="countdown-chip glass-float" id="countdown-pill" aria-live="polite">Home in 90s</div>
-              <button class="float-button" id="restart-session-button" type="button">Restart Session</button>
-              <button class="float-button float-button--accent" id="return-home-button" type="button">
-                Back to Home
-              </button>
+              <div class="countdown-chip" id="countdown-pill" aria-live="polite">Home in 90s</div>
+              <button class="float-button" id="restart-session-button" type="button">Restart</button>
+              <button class="float-button float-button--accent" id="return-home-button" type="button">&#8592; Back to Home</button>
             </div>
           </div>
-
           <div class="map-frame-wrap">
             <iframe
               id="mappedin-frame"
@@ -139,52 +140,34 @@
               style="border:0"
             ></iframe>
           </div>
-
-          <div class="map-partner-ribbon glass-float" id="map-partner-ribbon" aria-label="Employer partners ribbon">
-            <div class="map-partner-ribbon__label">Employer partners</div>
+          <div class="map-partner-ribbon is-empty" id="map-partner-ribbon" aria-label="Employer partners ribbon">
+            <div class="map-partner-ribbon__label">Partners</div>
             <div class="map-partner-ribbon__track" id="map-partner-track"></div>
           </div>
         </div>
       </section>
 
-      <div
-        class="modal-backdrop is-hidden"
-        id="instagram-popup"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="instagram-title"
-      >
+      <div class="modal-backdrop is-hidden" id="instagram-popup" role="dialog" aria-modal="true" aria-labelledby="instagram-title">
         <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
-        <div class="instagram-modal glass-card">
+        <div class="instagram-modal">
           <div class="modal-kicker" id="instagram-kicker">Follow us</div>
           <h2 class="modal-title" id="instagram-title">Follow us for career tips, events, and student success stories</h2>
           <p class="modal-copy" id="instagram-headline">Scan to connect with @csuncareercenter</p>
-
           <div class="instagram-modal__content">
             <div class="qr-card">
-              <img
-                src="./assets/qr/instagram-qr.png"
-                alt="Instagram QR code for CSUN Career Center"
-                class="qr-card__image"
-              />
+              <img src="./assets/qr/instagram-qr.png" alt="Instagram QR code for CSUN Career Center" class="qr-card__image" />
             </div>
-
             <div class="instagram-card">
               <div class="instagram-handle" id="instagram-handle">@csuncareercenter</div>
-              <p class="instagram-body" id="instagram-body">
-                Scan the code to follow the Career Center and stay updated on upcoming fairs, workshops, employer highlights, and student success stories.
-              </p>
-              <a class="instagram-link" id="instagram-link" href="https://www.instagram.com/csuncareercenter/" target="_blank" rel="noreferrer">
-                Open Instagram
-              </a>
+              <p class="instagram-body" id="instagram-body">Scan the code to follow the Career Center and stay updated on upcoming fairs, workshops, employer highlights, and student success stories.</p>
+              <a class="instagram-link" id="instagram-link" href="https://www.instagram.com/csuncareercenter/" target="_blank" rel="noreferrer">Open Instagram</a>
             </div>
           </div>
-
-          <button class="secondary-cta" id="close-popup-button" type="button">Continue to map</button>
+          <button class="secondary-cta" id="close-popup-button" type="button">Continue to map &#8594;</button>
         </div>
       </div>
-    </div>
 
+    </div>
     <script type="module" src="./src/app.js"></script>
   </body>
 </html>

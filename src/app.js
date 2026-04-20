@@ -23,18 +23,12 @@ const els = {
   homeScreen: document.getElementById('home-screen'),
   mapScreen: document.getElementById('map-screen'),
   eventLabelPill: document.getElementById('event-label-pill'),
-  eventTitle: document.getElementById('event-title'),
   eventDate: document.getElementById('event-date'),
-  heroEyebrow: document.getElementById('hero-eyebrow'),
-  heroTitle: document.getElementById('hero-title'),
-  heroDescription: document.getElementById('hero-description'),
-  partnerSubcopy: document.getElementById('partner-subcopy'),
   ctaText: document.getElementById('cta-text'),
   attendeeCount: document.getElementById('attendee-count'),
-  partnerCount: document.getElementById('partner-count'),
   logoStage: document.getElementById('logo-stage'),
   pageDots: document.getElementById('page-dots'),
-  partnerTrack: document.getElementById('partner-track'),
+  partnerTrack: document.getElementById('partner-logos-row'),
   mapPartnerTrack: document.getElementById('map-partner-track'),
   mapPartnerRibbon: document.getElementById('map-partner-ribbon'),
   startButton: document.getElementById('start-button'),
@@ -57,12 +51,7 @@ const els = {
 
 function applyCopy() {
   els.eventLabelPill.textContent = EVENT_CONFIG.label;
-  els.eventTitle.textContent = EVENT_CONFIG.title;
   els.eventDate.textContent = EVENT_CONFIG.date;
-  els.heroEyebrow.textContent = EVENT_CONFIG.heroEyebrow;
-  els.heroTitle.textContent = EVENT_CONFIG.heroTitle;
-  els.heroDescription.textContent = EVENT_CONFIG.heroDescription;
-  els.partnerSubcopy.textContent = EVENT_CONFIG.partnerSubcopy;
   els.ctaText.textContent = EVENT_CONFIG.ctaText;
   els.returnMessage.textContent = EVENT_CONFIG.returnMessage;
   els.mapToolbarTitle.textContent = EVENT_CONFIG.mapToolbarTitle;
@@ -217,8 +206,8 @@ function renderPartnerTrack() {
 
   if (!state.partnerLogos.length) {
     const empty = document.createElement('div');
-    empty.className = 'partner-empty';
-    empty.innerHTML = 'Add partner logos to <code>assets/employers/partners</code>.';
+    empty.className = 'partner-empty-hint';
+    empty.innerHTML = 'Add partner logos to <code>assets/employers/partners/</code>';
     els.partnerTrack.appendChild(empty);
     els.mapPartnerRibbon.classList.add('is-empty');
     return;
@@ -226,24 +215,29 @@ function renderPartnerTrack() {
 
   els.mapPartnerRibbon.classList.remove('is-empty');
 
+  // Render partner logo cards (new horizontal row style)
   state.partnerLogos.forEach((logo) => {
-    const card = createLogoCard(logo, 'logo-card--partner');
-    els.partnerTrack.appendChild(card);
-  });
-
-  state.partnerLogos.forEach((logo) => {
-    const chip = document.createElement('div');
-    chip.className = 'map-partner-chip';
-
+    const card = document.createElement('div');
+    card.className = 'partner-logo-card';
     const image = document.createElement('img');
     image.src = logo.src;
     image.alt = logo.name;
     image.loading = 'lazy';
+    card.appendChild(image);
+    els.partnerTrack.appendChild(card);
+  });
 
+  // Map ribbon chips
+  state.partnerLogos.forEach((logo) => {
+    const chip = document.createElement('div');
+    chip.className = 'map-partner-chip';
+    const image = document.createElement('img');
+    image.src = logo.src;
+    image.alt = logo.name;
+    image.loading = 'lazy';
     chip.appendChild(image);
     els.mapPartnerTrack.appendChild(chip);
   });
-
 }
 
 function updatePageDots() {
@@ -319,8 +313,7 @@ function renderAttendeePages() {
 }
 
 function updateCounts() {
-  els.attendeeCount.textContent = String(state.attendeeLogos.length);
-  els.partnerCount.textContent = String(state.partnerLogos.length);
+  if (els.attendeeCount) els.attendeeCount.textContent = state.attendeeLogos.length > 0 ? `(${state.attendeeLogos.length})` : '';
 }
 
 function buildConfetti() {
