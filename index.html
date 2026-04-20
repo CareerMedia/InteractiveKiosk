@@ -3,101 +3,130 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>CSUN Career Center Interactive Kiosk</title>
+    <meta name="theme-color" content="#f6f3ef" />
     <meta
       name="description"
-      content="Premium interactive career fair kiosk for CSUN Career Center."
+      content="CSUN Career Center premium interactive kiosk for career fair wayfinding and employer discovery."
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <title>CSUN Career Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
-    <div class="app-shell" id="app">
-      <div class="ambient ambient-left" aria-hidden="true"></div>
-      <div class="ambient ambient-right" aria-hidden="true"></div>
-      <div class="scanline-layer" aria-hidden="true"></div>
+    <div class="app" id="app">
+      <div class="ambient ambient-a" aria-hidden="true"></div>
+      <div class="ambient ambient-b" aria-hidden="true"></div>
+      <div class="ambient ambient-c" aria-hidden="true"></div>
 
-      <aside class="partner-rail glass-panel" aria-label="Employer partners">
-        <div class="partner-rail__header">
-          <span class="eyebrow">Featured employer partners</span>
-          <h2>Employer Partners</h2>
-        </div>
-        <div class="partner-rail__viewport">
-          <div class="partner-rail__track" id="partner-track"></div>
-        </div>
-      </aside>
-
-      <main class="content-shell" id="content-shell">
-        <section class="screen screen-home" id="home-screen" aria-label="Interactive kiosk home screen">
-          <section class="hero-card glass-panel">
+      <section class="screen home-screen" id="home-screen" aria-label="Career fair kiosk home screen">
+        <header class="topbar glass-card">
+          <div class="brand-lockup">
             <img
               src="./assets/branding/csun-career-center-logo.png"
-              alt="CSUN Career Center logo"
-              class="hero-logo"
+              alt="CSUN Career Center"
+              class="brand-logo"
             />
+          </div>
+
+          <div class="topbar-meta" id="topbar-meta">
+            <div class="meta-pill" id="event-label-pill">Career Fair</div>
+            <div class="meta-stack">
+              <div class="meta-title" id="event-title">Find your next opportunity</div>
+              <div class="meta-subtitle" id="event-date">Tap to explore the live event map</div>
+            </div>
+          </div>
+        </header>
+
+        <main class="home-layout">
+          <section class="hero-panel glass-card">
             <div class="hero-copy">
-              <span class="eyebrow">Interactive Kiosk</span>
-              <h1 id="event-title">Career Fair Interactive Kiosk</h1>
-              <p id="event-subtitle">
-                Explore employers, discover partner organizations, and open the live event map.
+              <div class="eyebrow" id="hero-eyebrow">Welcome</div>
+              <h1 class="hero-title" id="hero-title">Find your next opportunity.</h1>
+              <p class="hero-description" id="hero-description">
+                Explore the fair map, discover employers, and connect with featured partners.
               </p>
+            </div>
+
+            <div class="attendee-panel">
+              <div class="section-heading-row">
+                <div>
+                  <div class="section-eyebrow">Attending employers</div>
+                  <h2 class="section-title">Who is here today</h2>
+                </div>
+                <div class="section-stat" aria-live="polite">
+                  <span class="section-stat__value" id="attendee-count">0</span>
+                  <span class="section-stat__label">Logos</span>
+                </div>
+              </div>
+
+              <div class="logo-stage-wrap">
+                <div class="logo-stage" id="logo-stage"></div>
+                <div class="page-dots" id="page-dots" aria-hidden="true"></div>
+              </div>
             </div>
           </section>
 
-          <section class="logo-showcase glass-panel">
-            <header class="section-header">
+          <aside class="partner-panel glass-card" aria-label="Employer partners">
+            <div class="section-heading-row section-heading-row--partner">
               <div>
-                <span class="eyebrow">Attending employers</span>
-                <h2>Who is here today</h2>
+                <div class="section-eyebrow section-eyebrow--accent">Employer partners</div>
+                <h2 class="section-title">Featured partners</h2>
               </div>
-              <div class="stats-row">
-                <div class="stat-pill">
-                  <strong id="attendee-count">0</strong>
-                  <span>Attendees</span>
-                </div>
-                <div class="stat-pill">
-                  <strong id="partner-count">0</strong>
-                  <span>Partners</span>
-                </div>
+              <div class="section-stat" aria-live="polite">
+                <span class="section-stat__value" id="partner-count">0</span>
+                <span class="section-stat__label">Featured</span>
               </div>
-            </header>
-            <div class="logo-stage" id="logo-stage"></div>
-          </section>
-
-          <section class="cta-dock glass-panel">
-            <div>
-              <div class="cta-title">Open the interactive event map</div>
-              <p id="start-button-subcopy">
-                Tap below to browse the floor map and locate employers in real time.
-              </p>
             </div>
-            <button class="primary-button" id="start-button" type="button">Start Here</button>
-          </section>
-        </section>
 
-        <section class="screen screen-map is-hidden" id="map-screen" aria-label="Interactive map view">
-          <div class="map-overlay-controls">
-            <div class="map-chip glass-panel compact-panel">
+            <div class="partner-subcopy" id="partner-subcopy">
+              Proud supporters helping power the CSUN Career Center experience.
+            </div>
+
+            <div class="partner-track-shell">
+              <div class="partner-track" id="partner-track"></div>
+            </div>
+          </aside>
+        </main>
+
+        <footer class="cta-bar glass-card">
+          <div class="cta-copy">
+            <div class="cta-label">Start here</div>
+            <p class="cta-text" id="cta-text">Explore the fair map and find employers.</p>
+          </div>
+          <button class="primary-cta" id="start-button" type="button">Start Here</button>
+        </footer>
+      </section>
+
+      <section class="screen map-screen is-hidden" id="map-screen" aria-label="Career fair map screen">
+        <div class="map-shell glass-card">
+          <div class="map-toolbar">
+            <div class="map-brand glass-float">
               <img
                 src="./assets/branding/csun-career-center-logo.png"
-                alt="CSUN Career Center logo"
-                class="map-chip__logo"
+                alt="CSUN Career Center"
+                class="map-brand__logo"
               />
-              <div>
-                <strong>Event Map</strong>
-                <span id="return-message">This kiosk returns home after a short period of inactivity.</span>
+              <div class="map-brand__copy">
+                <strong id="map-toolbar-title">Career Fair Map</strong>
+                <span id="return-message">Returns home after a short period of inactivity.</span>
               </div>
             </div>
-            <div class="map-overlay-controls__right">
-              <div class="countdown-pill glass-panel compact-panel" id="countdown-pill" aria-live="polite">
-                Home in 90s
-              </div>
-              <button class="secondary-button glass-panel compact-panel" id="return-home-button" type="button">
-                Return Home
+
+            <div class="map-controls">
+              <div class="countdown-chip glass-float" id="countdown-pill" aria-live="polite">Home in 90s</div>
+              <button class="float-button" id="restart-session-button" type="button">Restart Session</button>
+              <button class="float-button float-button--accent" id="return-home-button" type="button">
+                Back to Home
               </button>
             </div>
           </div>
 
-          <div class="map-frame-shell" id="map-shell">
+          <div class="map-frame-wrap">
             <iframe
               id="mappedin-frame"
               title="Mappedin Map"
@@ -110,40 +139,52 @@
               style="border:0"
             ></iframe>
           </div>
-        </section>
-      </main>
 
-      <div class="popup-backdrop is-hidden" id="instagram-popup" role="dialog" aria-modal="true" aria-labelledby="instagram-title">
+          <div class="map-partner-ribbon glass-float" id="map-partner-ribbon" aria-label="Employer partners ribbon">
+            <div class="map-partner-ribbon__label">Employer partners</div>
+            <div class="map-partner-ribbon__track" id="map-partner-track"></div>
+          </div>
+        </div>
+      </section>
+
+      <div
+        class="modal-backdrop is-hidden"
+        id="instagram-popup"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="instagram-title"
+      >
         <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
-        <div class="popup-shell glass-panel">
-          <div class="popup-badge">Follow us</div>
-          <h2 id="instagram-title">Stay connected with the Career Center</h2>
-          <p class="popup-copy" id="instagram-headline">
-            Scan the QR code and follow us for career tips, employer highlights, and event updates.
-          </p>
-          <div class="popup-card">
-            <div class="popup-card__qr-wrap">
+        <div class="instagram-modal glass-card">
+          <div class="modal-kicker" id="instagram-kicker">Follow us</div>
+          <h2 class="modal-title" id="instagram-title">Follow us for career tips, events, and student success stories</h2>
+          <p class="modal-copy" id="instagram-headline">Scan to connect with @csuncareercenter</p>
+
+          <div class="instagram-modal__content">
+            <div class="qr-card">
               <img
                 src="./assets/qr/instagram-qr.png"
                 alt="Instagram QR code for CSUN Career Center"
-                class="popup-card__qr"
+                class="qr-card__image"
               />
             </div>
-            <div class="popup-card__content">
-              <div class="popup-handle" id="instagram-handle">@csuncareercenter</div>
-              <p id="instagram-body">
-                Join our online community and stay in the loop with workshops, career fair updates, employer spotlights, and quick career advice.
+
+            <div class="instagram-card">
+              <div class="instagram-handle" id="instagram-handle">@csuncareercenter</div>
+              <p class="instagram-body" id="instagram-body">
+                Scan the code to follow the Career Center and stay updated on upcoming fairs, workshops, employer highlights, and student success stories.
               </p>
-              <a class="popup-link" id="instagram-link" href="https://www.instagram.com/csuncareercenter/" target="_blank" rel="noreferrer">
+              <a class="instagram-link" id="instagram-link" href="https://www.instagram.com/csuncareercenter/" target="_blank" rel="noreferrer">
                 Open Instagram
               </a>
             </div>
           </div>
-          <button class="ghost-button" id="close-popup-button" type="button">Continue to map</button>
+
+          <button class="secondary-cta" id="close-popup-button" type="button">Continue to map</button>
         </div>
       </div>
     </div>
 
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./src/app.js"></script>
   </body>
 </html>

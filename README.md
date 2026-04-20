@@ -1,34 +1,34 @@
-# Interactive Kiosk
+# CSUN Career Center Interactive Kiosk
 
-This is a zero-build GitHub Pages version of the CSUN Career Center Interactive Kiosk.
+A premium, light-mode, GitHub Pages-ready kiosk for career fairs.
 
-## Why this version
+## Deploy on GitHub Pages
 
-This repo is designed to avoid blank-screen deploy issues:
-- no Vite
-- no npm install
-- no build step
-- no GitHub Action required
-- no hidden `.github` dependency
+1. Upload the repo to GitHub.
+2. Go to **Settings -> Pages**.
+3. Under **Build and deployment**, choose **Deploy from a branch**.
+4. Select **main** and **/(root)**.
+5. Save.
 
-You can deploy it directly with **GitHub Pages -> Deploy from a branch -> main -> /(root)**.
+This repo is static HTML/CSS/JS, so it does **not** require Vite, npm, or GitHub Actions.
 
-## How to update the map
+## What to edit
 
-Edit `config.js` and change:
+### Event copy
+Edit these files:
+- `src/config/event.js`
+- `src/config/popup.js`
 
-```js
-MAP_CONFIG.embedUrl
-```
+### Map link
+Edit:
+- `src/config/map.js`
 
-## How to update kiosk text and timing
+### Timing
+Edit:
+- `src/config/timing.js`
 
-Edit `config.js`.
-
-## How to add employer logos
-
-Drop image files into these folders in the repo:
-
+### Add logos
+Drop logo files into:
 - `assets/employers/attendees/`
 - `assets/employers/partners/`
 
@@ -40,18 +40,27 @@ Supported file types:
 - webp
 - avif
 
-The app reads those folders from the GitHub repo using the GitHub Contents API at runtime, so after you commit and publish, the kiosk will automatically show every logo in those folders.
+The kiosk reads those folders from the GitHub repo using the GitHub Contents API at runtime, then caches the results in the browser for faster reloads.
 
-## GitHub Pages setup
+## Core behavior
 
-1. Push the repo to GitHub.
-2. Go to **Settings -> Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Select **main** and **/(root)**.
-5. Save.
+- **Home / attract mode** shows attendee logos in animated pages.
+- **Employer partners** stay visible in a dedicated premium section.
+- **Start Here** opens the full-screen Mappedin map.
+- **Instagram popup** appears once per session.
+- **Inactivity timeout** returns the kiosk to home and resets the session.
 
-## Notes
+## Repo structure
 
-- The QR code image is stored at `assets/qr/instagram-qr.png`.
-- The CSUN Career Center logo is stored at `assets/branding/csun-career-center-logo.png`.
-- If you change the repo name or owner and the site is hosted on GitHub Pages, the app auto-detects the repo URL. If needed, you can override the owner/repo in `config.js`.
+- `index.html`
+- `styles/main.css`
+- `src/app.js`
+- `src/config/event.js`
+- `src/config/map.js`
+- `src/config/popup.js`
+- `src/config/timing.js`
+- `src/config/logos.js`
+- `assets/branding/csun-career-center-logo.png`
+- `assets/qr/instagram-qr.png`
+- `assets/employers/attendees/`
+- `assets/employers/partners/`
