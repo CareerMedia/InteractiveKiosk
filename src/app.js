@@ -4,6 +4,7 @@ import { MAP_CONFIG } from './config/map.js';
 import { POPUP_CONFIG } from './config/popup.js';
 import { TIMING_CONFIG } from './config/timing.js';
 import { URL_CONFIG } from './config/urls.js';
+import { loadConfig } from './shared/config.js';
 
 // ─── STATE ────────────────────────────────────────────────
 const state = {
@@ -17,6 +18,8 @@ const state = {
   partnerLogos: [],
   eventsLoaded: false,
   mapLoaded: false,
+  mapUrlOverride: null,
+  configVersion: 0,
   webLoadState: { website: 'idle', partners: 'idle' },
 };
 
@@ -140,7 +143,14 @@ function formatName(filename) {
 }
 
 function getMapUrl() {
-  const url = new URL(MAP_CONFIG.embedUrl);
+  // Admin override (from /admin) wins over the bundled default.
+  const base = state.mapUrlOverride || MAP_CONFIG.embedUrl;
+  let url;
+  try {
+    url = new URL(base);
+  } catch {
+    return base;
+  }
   if (!url.searchParams.has('embedded')) url.searchParams.set('embedded', 'true');
   if (!url.searchParams.has('kiosk'))    url.searchParams.set('kiosk', 'true');
   return url.toString();
@@ -160,7 +170,9 @@ function getRepoContext() {
 
 function getCacheKey(dir) {
   const { owner, repo, branch } = getRepoContext();
-  return `kiosk-logo-cache:${owner}:${repo}:${branch}:${dir}`;
+  // Include the admin-managed config version so every new admin commit
+  // automatically invalidates previously-cached logo listings.
+  return `kiosk-logo-cache:${owner}:${repo}:${branch}:v${state.configVersion}:${dir}`;
 }
 
 function readCache(dir) {
@@ -937,6 +949,8 @@ function bindEvents() {
 }
 
 // ─── LOAD LOGOS ──────────────────────────────────────────
+// Every kiosk reads the same logos directly from the repo. The /admin
+// dashboard commits changes to the repo so updates land everywhere at once.
 async function loadLogos() {
   try {
     const [attendee, partner] = await Promise.all([
@@ -954,10 +968,26 @@ async function loadLogos() {
   renderPartnerRow();
 }
 
+// ─── LOAD RUNTIME CONFIG ─────────────────────────────────
+// config.json at the repo root is the source of truth for admin-managed
+// settings (currently: map URL + a version counter). The kiosk picks it
+// up at boot; admins bump the version with every commit so any logo
+// listings cached in localStorage also get invalidated.
+async function loadRuntimeConfig() {
+  try {
+    const cfg = await loadConfig();
+    state.configVersion = cfg.version || 0;
+    if (cfg.mapUrl) state.mapUrlOverride = cfg.mapUrl;
+  } catch (err) {
+    console.warn('config.json unavailable; using bundled defaults.', err);
+  }
+}
+
 // ─── INIT ────────────────────────────────────────────────
-function init() {
+async function init() {
   applyCopy();
   bindEvents();
+  await loadRuntimeConfig();
   loadLogos();
   setView('home');
 }

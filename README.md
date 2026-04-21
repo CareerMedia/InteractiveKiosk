@@ -74,11 +74,12 @@ Sites like `csun.edu` send `X-Frame-Options: SAMEORIGIN` which **blocks any ifra
 - `src/config/timing.js`
 
 ### Logos
-Drop files into:
-- `assets/employers/attendees/`
-- `assets/employers/partners/`
+The repo is the single source of truth for logos — every kiosk and mobile page reads the same files. Two ways to manage them:
 
-Supported: `png`, `jpg`, `jpeg`, `svg`, `webp`, `avif`. The kiosk reads these folders from your GitHub repo via the public Contents API and caches results in `localStorage`.
+1. **Commit files manually** — drop images into `assets/employers/attendees/` or `assets/employers/partners/` and push. Supported: `png`, `jpg`, `jpeg`, `svg`, `webp`, `avif`, `gif`.
+2. **Use the admin dashboard** at `/admin` — upload, remove individually, or bulk-clear. Every change is committed straight to the repo so all devices update in unison. See the *Admin dashboard* section below.
+
+Kiosks cache the logo listing in `localStorage` for 5 minutes; they also key that cache by the `version` counter in `config.json`, which the admin bumps with every commit, so changes propagate as soon as kiosks reload.
 
 ## Core behavior
 
@@ -88,11 +89,42 @@ Supported: `png`, `jpg`, `jpeg`, `svg`, `webp`, `avif`. The kiosk reads these fo
 - **Instagram popup** — shown once per session after a short delay.
 - **Inactivity timeout** — returns the kiosk to home after 90 s (configurable).
 
+## Extra pages
+
+Two companion pages ship alongside the main kiosk:
+
+### `/mobile` — phone-friendly map
+A stripped-down view designed for attendees who scan a QR code. It shows only the header (CSUN logo + "Welcome to the Career Fair!") and the map, optimized for phones. The map URL respects any override set in the admin dashboard.
+
+Test locally: `http://localhost:8000/mobile/`
+On GitHub Pages: `https://<user>.github.io/<repo>/mobile/`
+
+### `/admin` — kiosk admin dashboard
+Password-protected management UI that **commits directly to this repo** via the GitHub API, so every kiosk and mobile page stays in sync automatically.
+
+**Password:** `spider#5` (change by editing the `ADMIN_PASSWORD` constant at the top of `admin/admin.js`).
+
+**First use — connect to GitHub.** After the password, the admin asks for four things and remembers them in that browser's `localStorage` (never committed to the repo):
+- **Owner** and **Repo** — auto-detected when hosted on GitHub Pages; otherwise fill in manually.
+- **Branch** — defaults to `main`.
+- **Personal Access Token** — a fine-grained PAT scoped to this repo with **Contents: Read and write** is strongly recommended. ([Create one here](https://github.com/settings/personal-access-tokens/new).) A classic token with `repo` scope also works.
+
+**Features:**
+- **Map** — update the Mappedin URL. Saves to `config.json` at the repo root. Live preview inside the admin.
+- **Employer Partners** — drag-and-drop any number of images. Each upload is a commit to `assets/employers/partners/`. Remove individual logos, each as its own commit.
+- **Participating Employers** — same upload flow against `assets/employers/attendees/`. The **Remove all** button deletes every file in that folder in a single atomic commit (using the Git Trees API) and leaves a `.gitkeep` so the folder survives in the repo.
+
+**Propagation.** Every admin action also bumps a `version` counter in `config.json`. Kiosks include this counter in their logo-cache keys, so any change immediately invalidates previously-cached listings. Combined with a short (5-min) TTL, most kiosks pick up changes within a page reload or a few minutes.
+
+**Security note.** Because this site is fully static, the password lives in the JavaScript bundle and isn't real authentication — anyone who views source can see it. The GitHub token, however, is real: handle it carefully. Treat the admin URL as sensitive, use a fine-grained token limited to this one repo, and revoke it from GitHub if a device is lost or compromised.
+
 ## Repo structure
 
 ```
-index.html
+index.html                ← main kiosk
 styles/main.css
+config.json               ← admin-managed runtime config (map URL + version)
+
 src/app.js
 src/config/
   event.js
@@ -100,7 +132,21 @@ src/config/
   map.js
   popup.js
   timing.js
-  urls.js          ← new: external URL targets + CORS proxies
+  urls.js                 ← external URL targets + CORS proxies
+src/shared/
+  config.js               ← fetches config.json at runtime (kiosk + mobile)
+  github.js               ← GitHub API client (admin only)
+
+mobile/                   ← /mobile — phone-friendly map
+  index.html
+  mobile.css
+  mobile.js
+
+admin/                    ← /admin — password-protected dashboard
+  index.html
+  admin.css
+  admin.js
+
 assets/
   branding/csun-career-center-logo.png
   qr/instagram-qr.png

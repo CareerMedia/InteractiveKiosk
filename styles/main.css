@@ -383,9 +383,13 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 .ticker-column:nth-child(4) .ticker-column__track { --col-duration: 70s; --col-delay: -28s; }
 .ticker-column:nth-child(5) .ticker-column__track { --col-duration: 58s; --col-delay: -12s; }
 
+/* Logos fall from top to bottom. The track holds two identical stacks,
+   so starting at translateY(-50%) shows the second copy (bottom of stack
+   visible at the top) and animating to 0 moves content downward — when
+   it wraps back to -50% the transition is seamless. */
 @keyframes ticker-scroll-down {
-  0%   { transform: translateY(0); }
-  100% { transform: translateY(-50%); }
+  0%   { transform: translateY(-50%); }
+  100% { transform: translateY(0); }
 }
 
 /* Dynamic logo card  */

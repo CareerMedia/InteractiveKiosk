@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#d22030" />
+    <meta name="description" content="Mobile companion for the CSUN Career Center fair map — scan, explore, and find employers on the go." />
+    <title>CSUN Career Fair — Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./mobile.css" />
+  </head>
+  <body>
+    <div class="mobile-app">
+      <header class="m-topbar">
+        <img src="../assets/branding/csun-career-center-logo.png" alt="CSUN Career Center" class="m-logo" />
+        <div class="m-title-wrap">
+          <div class="m-title">Welcome to the Career Fair!</div>
+        </div>
+      </header>
+
+      <main class="m-stage">
+        <div class="m-loading" id="m-loading">
+          <div class="m-spinner" aria-hidden="true"></div>
+          <span>Loading map…</span>
+        </div>
+        <iframe
+          id="m-map"
+          class="m-map"
+          title="Career Fair Map"
+          allow="clipboard-write 'self' https://app.mappedin.com; web-share 'self' https://app.mappedin.com; geolocation 'self'"
+          frameborder="0"
+        ></iframe>
+      </main>
+    </div>
+
+    <script type="module" src="./mobile.js"></script>
+  </body>
+</html>

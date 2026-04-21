@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#d22030" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>CSUN Kiosk Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./admin.css" />
+  </head>
+  <body class="admin-body">
+
+    <!-- ═══════════════ LOGIN GATE ═══════════════ -->
+    <div class="login-shell" id="login-shell">
+      <div class="login-card">
+        <div class="login-brand">
+          <img src="../assets/branding/csun-career-center-logo.png" alt="CSUN Career Center" />
+        </div>
+        <div class="login-kicker">Kiosk Admin</div>
+        <h1 class="login-title">Sign in</h1>
+        <p class="login-sub">Manage what every kiosk and mobile page displays.</p>
+
+        <form class="login-form" id="login-form" autocomplete="off">
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input
+              type="password"
+              id="login-password"
+              class="field__input"
+              placeholder="Enter admin password"
+              autofocus
+              required
+            />
+          </label>
+          <button type="submit" class="btn btn--primary btn--block" id="login-submit">Sign in</button>
+          <div class="login-error is-hidden" id="login-error">That password didn't match. Try again.</div>
+        </form>
+
+        <div class="login-foot">
+          <a href="../" class="ghost-link">← Back to kiosk</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ CONNECT TO GITHUB ═══════════════ -->
+    <div class="login-shell is-hidden" id="connect-shell">
+      <div class="login-card login-card--wide">
+        <div class="login-kicker">Step 2 of 2</div>
+        <h1 class="login-title">Connect to GitHub</h1>
+        <p class="login-sub">
+          The admin writes directly to your repo so every kiosk and mobile page
+          updates at once. Connect once per admin device — the token stays in
+          this browser and isn't committed anywhere.
+        </p>
+
+        <form class="login-form" id="connect-form" autocomplete="off">
+          <div class="field-row">
+            <label class="field">
+              <span class="field__label">Owner</span>
+              <input type="text" id="conn-owner" class="field__input" placeholder="your-github-username" required />
+            </label>
+            <label class="field">
+              <span class="field__label">Repo</span>
+              <input type="text" id="conn-repo" class="field__input" placeholder="kiosk-repo" required />
+            </label>
+            <label class="field">
+              <span class="field__label">Branch</span>
+              <input type="text" id="conn-branch" class="field__input" placeholder="main" value="main" required />
+            </label>
+          </div>
+          <label class="field">
+            <span class="field__label">Personal Access Token</span>
+            <input type="password" id="conn-token" class="field__input" placeholder="github_pat_… or ghp_…" required />
+            <span class="field__hint">
+              Needs <strong>Contents: Read and write</strong> on this repo.
+              <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token ↗</a>
+            </span>
+          </label>
+          <div class="panel-actions panel-actions--center">
+            <button type="submit" class="btn btn--primary" id="connect-submit">Connect</button>
+            <button type="button" class="btn btn--ghost"   id="connect-back">Sign out</button>
+          </div>
+          <div class="inline-toast is-hidden" id="connect-toast"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══════════════ DASHBOARD ═══════════════ -->
+    <div class="dashboard is-hidden" id="dashboard">
+
+      <header class="dash-topbar">
+        <div class="dash-brand">
+          <img src="../assets/branding/csun-career-center-logo.png" alt="CSUN Career Center" />
+          <div>
+            <div class="dash-kicker">CSUN Kiosk</div>
+            <div class="dash-title">Admin Dashboard</div>
+          </div>
+        </div>
+        <div class="dash-actions">
+          <div class="repo-chip" id="repo-chip" title="Connected repository"></div>
+          <a class="btn btn--ghost btn--sm" href="../" target="_blank" rel="noopener">Kiosk ↗</a>
+          <a class="btn btn--ghost btn--sm" href="../mobile/" target="_blank" rel="noopener">Mobile ↗</a>
+          <button class="btn btn--ghost btn--sm" id="disconnect-btn" type="button">Disconnect</button>
+          <button class="btn btn--ghost btn--sm" id="logout-btn"     type="button">Sign out</button>
+        </div>
+      </header>
+
+      <nav class="dash-tabs" role="tablist">
+        <button class="dash-tab is-active" data-tab="map"       role="tab">Map</button>
+        <button class="dash-tab"           data-tab="partners"  role="tab">Employer Partners</button>
+        <button class="dash-tab"           data-tab="attendees" role="tab">Participating Employers</button>
+      </nav>
+
+      <main class="dash-main">
+
+        <!-- ─── MAP TAB ─── -->
+        <section class="dash-panel is-active" data-panel="map">
+          <div class="panel-head">
+            <h2 class="panel-title">Map link</h2>
+            <p class="panel-sub">
+              Paste the Mappedin share URL. When you save, this writes to
+              <code>config.json</code> at the repo root. Every kiosk and
+              mobile page picks it up on its next load.
+            </p>
+          </div>
+          <form id="map-form" class="map-form" autocomplete="off">
+            <label class="field">
+              <span class="field__label">Map embed URL</span>
+              <input
+                type="url"
+                id="map-url-input"
+                class="field__input"
+                placeholder="https://app.mappedin.com/map/…"
+                required
+              />
+              <span class="field__hint" id="map-url-current">Loading current setting…</span>
+            </label>
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="map-save-btn">Commit change</button>
+              <button class="btn btn--ghost"   type="button" id="map-reset-btn">Reset to default</button>
+            </div>
+            <div class="inline-toast is-hidden" id="map-toast"></div>
+          </form>
+
+          <div class="preview-card">
+            <div class="preview-head">
+              <span>Live preview</span>
+              <button class="btn btn--ghost btn--sm" type="button" id="map-preview-refresh">Refresh</button>
+            </div>
+            <iframe class="preview-frame" id="map-preview" title="Map preview" loading="lazy"></iframe>
+          </div>
+        </section>
+
+        <!-- ─── PARTNERS TAB ─── -->
+        <section class="dash-panel" data-panel="partners">
+          <div class="panel-head">
+            <h2 class="panel-title">Our Employer Partners</h2>
+            <p class="panel-sub">
+              Logos in this section appear in the top strip of the kiosk home
+              screen. Files are committed to
+              <code>assets/employers/partners/</code>.
+            </p>
+          </div>
+
+          <div class="dropzone" id="partners-drop" tabindex="0" role="button" aria-label="Upload partner logos">
+            <input type="file" id="partners-input" multiple accept="image/*" hidden />
+            <div class="dropzone__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg>
+            </div>
+            <div class="dropzone__title">Drop partner logos here</div>
+            <div class="dropzone__sub">or <span class="dz-browse">click to browse</span> — any number of images, any size</div>
+          </div>
+
+          <div class="upload-progress is-hidden" id="partners-progress">
+            <div class="upload-progress__bar"><div class="upload-progress__fill" style="width:0%"></div></div>
+            <div class="upload-progress__label">Uploading…</div>
+          </div>
+
+          <div class="panel-actions">
+            <span class="count-chip" id="partners-count">0 logos</span>
+            <div class="spacer"></div>
+            <button class="btn btn--ghost" type="button" id="partners-refresh">Refresh</button>
+          </div>
+
+          <div class="logo-grid" id="partners-grid"></div>
+          <div class="empty-state is-hidden" id="partners-empty">No partner logos yet. Drop images above to add them.</div>
+        </section>
+
+        <!-- ─── ATTENDEES TAB ─── -->
+        <section class="dash-panel" data-panel="attendees">
+          <div class="panel-head">
+            <h2 class="panel-title">Participating Employers</h2>
+            <p class="panel-sub">
+              Logos that scroll in the vertical ticker. Files are committed
+              to <code>assets/employers/attendees/</code>. "Remove all" runs
+              a single atomic commit and leaves a <code>.gitkeep</code> so
+              the folder stays in the repo.
+            </p>
+          </div>
+
+          <div class="dropzone" id="attendees-drop" tabindex="0" role="button" aria-label="Upload participating employer logos">
+            <input type="file" id="attendees-input" multiple accept="image/*" hidden />
+            <div class="dropzone__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg>
+            </div>
+            <div class="dropzone__title">Drop participating employer logos here</div>
+            <div class="dropzone__sub">or <span class="dz-browse">click to browse</span> — add as many as you need at once</div>
+          </div>
+
+          <div class="upload-progress is-hidden" id="attendees-progress">
+            <div class="upload-progress__bar"><div class="upload-progress__fill" style="width:0%"></div></div>
+            <div class="upload-progress__label">Uploading…</div>
+          </div>
+
+          <div class="panel-actions">
+            <span class="count-chip" id="attendees-count">0 logos</span>
+            <div class="spacer"></div>
+            <button class="btn btn--danger" type="button" id="attendees-clear">Remove all</button>
+            <button class="btn btn--ghost"  type="button" id="attendees-refresh">Refresh</button>
+          </div>
+
+          <div class="logo-grid" id="attendees-grid"></div>
+          <div class="empty-state is-hidden" id="attendees-empty">No participating employer logos yet. Drop images above to add them.</div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- ═══════════════ CONFIRM MODAL ═══════════════ -->
+    <div class="confirm-backdrop is-hidden" id="confirm-backdrop" role="dialog" aria-modal="true">
+      <div class="confirm-card">
+        <h3 class="confirm-title" id="confirm-title">Are you sure?</h3>
+        <p class="confirm-body"  id="confirm-body">This action cannot be undone.</p>
+        <div class="confirm-actions">
+          <button class="btn btn--ghost"  type="button" id="confirm-cancel">Cancel</button>
+          <button class="btn btn--danger" type="button" id="confirm-ok">Yes, do it</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./admin.js"></script>
+  </body>
+</html>
