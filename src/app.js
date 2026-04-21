@@ -77,6 +77,7 @@ const els = {
 
   // Controls (extra)
   topbarHomeBtn:      document.getElementById('topbar-home-btn'),
+  topbarMobileMapBtn: document.getElementById('topbar-mobile-map-btn'),
 
   // Popup
   popup:              document.getElementById('instagram-popup'),
@@ -88,6 +89,10 @@ const els = {
   instagramHeadline:  document.getElementById('instagram-headline'),
   instagramHandle:    document.getElementById('instagram-handle'),
   instagramBody:      document.getElementById('instagram-body'),
+
+  // Mobile map QR (map view header)
+  mobileMapPopup:     document.getElementById('mobile-map-popup'),
+  mobileMapCloseX:    document.getElementById('mobile-map-close-x'),
 
   // Event detail modal
   eventModal:         document.getElementById('event-detail-modal'),
@@ -284,37 +289,19 @@ function renderPartnerRow() {
 // Distributes logos round-robin across N columns, duplicates each column's
 // list for a seamless top→bottom scroll. Built to handle ~100 logos.
 const TICKER_COLUMNS = 5;
-const TICKER_SIZES = ['ticker-card--lg', 'ticker-card--md', 'ticker-card--sm'];
 
-function makeTickerCard(logo, index) {
+function makeTickerCard(logo) {
   const card = document.createElement('div');
-  // Rotate sizes so the cards look rhythmic, not uniform
-  const sizeCls = TICKER_SIZES[index % TICKER_SIZES.length];
-  const isHiring = index % 11 === 3; // sprinkle a few green "HIRING" chips
-  card.className = `ticker-card ${sizeCls}${isHiring ? ' ticker-card--hiring' : ''}`;
-  // stagger the shimmer so cards flash at different times
-  card.style.setProperty('--card-shimmer-delay', `${(index % 7) * 0.9}s`);
+  card.className = 'ticker-card ticker-card--logo-only';
 
   const logoWrap = document.createElement('div');
   logoWrap.className = 'ticker-card__logo';
   const img = document.createElement('img');
   img.src = logo.src;
-  img.alt = logo.name;
+  img.alt = '';
   img.loading = 'lazy';
   logoWrap.appendChild(img);
   card.appendChild(logoWrap);
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'ticker-card__name';
-  nameEl.textContent = logo.name;
-  card.appendChild(nameEl);
-
-  if (isHiring) {
-    const chip = document.createElement('span');
-    chip.className = 'ticker-card__chip';
-    chip.textContent = 'Hiring';
-    card.appendChild(chip);
-  }
 
   return card;
 }
@@ -347,8 +334,8 @@ function buildTicker() {
 
     // Build two identical stacks for seamless looping (-50% translate)
     [0, 1].forEach(() => {
-      logos.forEach((logo, i) => {
-        track.appendChild(makeTickerCard(logo, i + colIndex));
+      logos.forEach((logo) => {
+        track.appendChild(makeTickerCard(logo));
       });
     });
 
@@ -796,6 +783,8 @@ function setView(viewId) {
   els.app.dataset.view = viewId;
   state.activeView = viewId;
 
+  if (viewId !== 'map') closeMobileMapModal();
+
   // Load content lazily
   if (viewId === 'map' && !state.mapLoaded) {
     els.mappedinFrame.src = getMapUrl();
@@ -821,6 +810,7 @@ function setView(viewId) {
 function goHome() {
   setView('home');
   closePopup();
+  closeMobileMapModal();
   closeEventDetail();
 }
 
@@ -896,6 +886,20 @@ function closePopup() {
   clearPopupTimers();
 }
 
+function openMobileMapModal() {
+  if (!els.mobileMapPopup) return;
+  closePopup();
+  closeEventDetail();
+  els.mobileMapPopup.classList.remove('is-hidden');
+  els.app.classList.add('is-modal-open');
+}
+
+function closeMobileMapModal() {
+  if (!els.mobileMapPopup) return;
+  els.mobileMapPopup.classList.add('is-hidden');
+  els.app.classList.remove('is-modal-open');
+}
+
 function schedulePopup() {
   clearPopupTimers();
   if (state.sessionPopupShown || state.activeView === 'home') return;
@@ -922,6 +926,14 @@ function bindEvents() {
 
   // Header home button (visible only in map view via CSS)
   if (els.topbarHomeBtn) els.topbarHomeBtn.addEventListener('click', () => goHome());
+
+  if (els.topbarMobileMapBtn) els.topbarMobileMapBtn.addEventListener('click', openMobileMapModal);
+  if (els.mobileMapCloseX) els.mobileMapCloseX.addEventListener('click', closeMobileMapModal);
+  if (els.mobileMapPopup) {
+    els.mobileMapPopup.addEventListener('click', (e) => {
+      if (e.target === els.mobileMapPopup) closeMobileMapModal();
+    });
+  }
 
   // Kiosk "expand" buttons toggle fullscreen on the iframe section
   const toggleExpand = (sectionEl) => {

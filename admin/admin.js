@@ -18,7 +18,7 @@ import {
 } from '../src/shared/github.js';
 
 // ─── Config ─────────────────────────────────────────────
-const ADMIN_PASSWORD = 'spider#5';
+const ADMIN_PASSWORD = 'career1';
 const AUTH_KEY       = 'csun-kiosk-admin-auth';
 const CONFIG_PATH    = 'config.json';
 const PARTNERS_DIR   = 'assets/employers/partners';

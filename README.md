@@ -102,7 +102,7 @@ On GitHub Pages: `https://<user>.github.io/<repo>/mobile/`
 ### `/admin` — kiosk admin dashboard
 Password-protected management UI that **commits directly to this repo** via the GitHub API, so every kiosk and mobile page stays in sync automatically.
 
-**Password:** `spider#5` (change by editing the `ADMIN_PASSWORD` constant at the top of `admin/admin.js`).
+**Password:** `career1` (change by editing the `ADMIN_PASSWORD` constant at the top of `admin/admin.js`).
 
 **First use — connect to GitHub.** After the password, the admin asks for four things and remembers them in that browser's `localStorage` (never committed to the repo):
 - **Owner** and **Repo** — auto-detected when hosted on GitHub Pages; otherwise fill in manually.
