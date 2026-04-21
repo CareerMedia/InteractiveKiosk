@@ -286,13 +286,24 @@ function renderPartnerRow() {
 }
 
 // ─── PARTICIPATING EMPLOYERS — 5-column vertical marquee ──
-// Distributes logos round-robin across N columns, duplicates each column's
-// list for a seamless top→bottom scroll. Built to handle ~100 logos.
+// Distributes logos round-robin across N columns. Each column uses two
+// `.ticker-column__chunk` wrappers so translateY(-50%) loops perfectly
+// (gap lives *inside* each chunk, not between duplicate halves).
+// Pointer-drag on a card pauses the column and “knocks” neighbours aside.
 const TICKER_COLUMNS = 5;
+const TICKER_SIZES = ['ticker-card--lg', 'ticker-card--md', 'ticker-card--sm'];
 
-function makeTickerCard(logo) {
+const tickerDrag = {
+  active: null,
+  raf: null,
+};
+
+function makeTickerCard(logo, index, colIndex) {
   const card = document.createElement('div');
-  card.className = 'ticker-card ticker-card--logo-only';
+  const sizeCls = TICKER_SIZES[index % TICKER_SIZES.length];
+  const isHiring = (index + colIndex * 3) % 11 === 4;
+  card.className = `ticker-card ${sizeCls}${isHiring ? ' ticker-card--hiring' : ''}`;
+  card.style.setProperty('--card-shimmer-delay', `${(index % 9) * 1.15}s`);
 
   const logoWrap = document.createElement('div');
   logoWrap.className = 'ticker-card__logo';
@@ -300,10 +311,28 @@ function makeTickerCard(logo) {
   img.src = logo.src;
   img.alt = '';
   img.loading = 'lazy';
+  img.draggable = false;
   logoWrap.appendChild(img);
   card.appendChild(logoWrap);
 
+  if (isHiring) {
+    const chip = document.createElement('span');
+    chip.className = 'ticker-card__chip';
+    chip.textContent = 'Hiring';
+    card.appendChild(chip);
+  }
+
   return card;
+}
+
+function buildTickerChunk(logos, colIndex, ariaHidden) {
+  const chunk = document.createElement('div');
+  chunk.className = 'ticker-column__chunk';
+  if (ariaHidden) chunk.setAttribute('aria-hidden', 'true');
+  logos.forEach((logo, i) => {
+    chunk.appendChild(makeTickerCard(logo, i, colIndex));
+  });
+  return chunk;
 }
 
 function buildTicker() {
@@ -332,16 +361,147 @@ function buildTicker() {
     const track = document.createElement('div');
     track.className = 'ticker-column__track';
 
-    // Build two identical stacks for seamless looping (-50% translate)
-    [0, 1].forEach(() => {
-      logos.forEach((logo) => {
-        track.appendChild(makeTickerCard(logo));
-      });
-    });
+    track.appendChild(buildTickerChunk(logos, colIndex, false));
+    track.appendChild(buildTickerChunk(logos, colIndex, true));
 
     col.appendChild(track);
     els.tickerGrid.appendChild(col);
   });
+
+  setupTickerInteraction();
+}
+
+function setupTickerInteraction() {
+  if (!els.tickerGrid) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  els.tickerGrid.removeEventListener('pointerdown', onTickerPointerDown);
+  els.tickerGrid.addEventListener('pointerdown', onTickerPointerDown);
+}
+
+function onTickerPointerDown(e) {
+  const card = e.target.closest('.ticker-card');
+  if (!card || !els.tickerGrid.contains(card)) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+  const track = card.closest('.ticker-column__track');
+  const col = card.closest('.ticker-column');
+  if (!track || !col) return;
+
+  e.preventDefault();
+  col.classList.add('ticker-column--drag');
+
+  const cards = [...track.querySelectorAll('.ticker-card')];
+  tickerDrag.active = {
+    card,
+    track,
+    col,
+    id: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    cards,
+    onMove: onTickerPointerMove,
+    onUp: onTickerPointerUp,
+  };
+
+  track.classList.add('is-paused');
+  card.classList.add('ticker-card--dragging');
+  try {
+    card.setPointerCapture(e.pointerId);
+  } catch { /* ignore */ }
+
+  card.addEventListener('pointermove', onTickerPointerMove);
+  card.addEventListener('pointerup', onTickerPointerUp);
+  card.addEventListener('pointercancel', onTickerPointerUp);
+}
+
+function onTickerPointerMove(e) {
+  const d = tickerDrag.active;
+  if (!d || e.pointerId !== d.id) return;
+
+  if (tickerDrag.raf) cancelAnimationFrame(tickerDrag.raf);
+  tickerDrag.raf = requestAnimationFrame(() => {
+    tickerDrag.raf = null;
+    const st = tickerDrag.active;
+    if (!st || st.id !== e.pointerId) return;
+    const { card, startX, startY, cards } = st;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const px = e.clientX;
+    const py = e.clientY;
+
+    const maxKnock = 56;
+    const reach = 160;
+
+    card.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.06) rotate(${dx * 0.05}deg)`;
+    card.style.zIndex = '30';
+
+    for (const c of cards) {
+      if (c === card) continue;
+      const r = c.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const dist = Math.hypot(px - cx, py - cy) + 10;
+      if (dist > reach * 2) {
+        c.style.transform = '';
+        continue;
+      }
+      const falloff = Math.max(0, 1 - dist / (reach * 2));
+      const force = maxKnock * falloff * falloff;
+      const nx = (cx - px) / dist;
+      const ny = (cy - py) / dist;
+      const kx = Math.max(-maxKnock, Math.min(maxKnock, nx * force));
+      const ky = Math.max(-18, Math.min(18, ny * force * 0.35));
+      c.style.transform = `translate3d(${kx}px, ${ky}px, 0)`;
+    }
+  });
+}
+
+function onTickerPointerUp(e) {
+  const d = tickerDrag.active;
+  if (!d || e.pointerId !== d.id) return;
+
+  const { card, track, col, cards, onMove, onUp } = d;
+  if (tickerDrag.raf) {
+    cancelAnimationFrame(tickerDrag.raf);
+    tickerDrag.raf = null;
+  }
+  tickerDrag.active = null;
+
+  card.removeEventListener('pointermove', onMove);
+  card.removeEventListener('pointerup', onUp);
+  card.removeEventListener('pointercancel', onUp);
+  try {
+    card.releasePointerCapture(e.pointerId);
+  } catch { /* ignore */ }
+
+  if (!card.isConnected) {
+    track.classList.remove('is-paused');
+    col.classList.remove('ticker-column--drag');
+    return;
+  }
+
+  track.classList.remove('is-paused');
+  col.classList.remove('ticker-column--drag');
+  card.classList.remove('ticker-card--dragging');
+
+  const spring = 'transform 0.42s cubic-bezier(0.22, 1.15, 0.32, 1)';
+  card.style.transition = spring;
+  card.style.transform = '';
+  card.style.zIndex = '';
+
+  for (const c of cards) {
+    if (!c.isConnected) continue;
+    c.style.transition = spring;
+    c.style.transform = '';
+  }
+
+  window.setTimeout(() => {
+    if (card.isConnected) card.style.transition = '';
+    cards.forEach((c) => {
+      if (c.isConnected) c.style.transition = '';
+    });
+  }, 450);
 }
 
 // ─── EVENTS FEED (More Events view) ──────────────────────

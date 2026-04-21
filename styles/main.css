@@ -394,25 +394,42 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   overflow: hidden;
   min-height: 0;
   border-radius: 10px;
-  /* Isolate each column's compositing so scroll + spotlight don't fight. */
-  contain: strict;
+  contain: layout style;
   transform: translateZ(0);
+}
+
+/* While dragging, let knocked cards slide past the column edge briefly */
+.ticker-column.ticker-column--drag {
+  overflow: visible;
+  z-index: 8;
+  contain: layout;
+}
+
+/* Two stacked chunks = seamless -50% loop (gap only inside each chunk) */
+.ticker-column__chunk {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 
 .ticker-column__track {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   padding: 2px 0;
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  /* Same duration + no stagger on every column = perfectly synced loop,
-     no visible "catch-up" or jitter between columns. */
+  /* Same duration on every column = synced, smooth loop */
   --col-duration: 165s;
   --col-delay: 0s;
   animation: ticker-scroll-down var(--col-duration) linear infinite;
   animation-delay: var(--col-delay);
+}
+
+.ticker-column__track.is-paused {
+  animation-play-state: paused;
 }
 
 /* Logos fall from top to bottom. The track holds two identical stacks,
@@ -424,7 +441,6 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   100% { transform: translate3d(0, 0, 0); }
 }
 
-/* Logo-only cards — no label row, uniform height for a steady scroll rhythm */
 .ticker-card {
   position: relative;
   flex: 0 0 auto;
@@ -441,11 +457,24 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   overflow: hidden;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  touch-action: none;
+  cursor: grab;
 }
 
-.ticker-card--logo-only {
-  min-height: 76px;
+.ticker-card:active { cursor: grabbing; }
+
+.ticker-card--dragging {
+  cursor: grabbing;
+  box-shadow:
+    0 8px 28px rgba(210,32,48,0.22),
+    0 16px 48px rgba(0,0,0,0.12);
+  z-index: 30;
 }
+
+/* Varied card heights — rhythm without breaking the chunk-based loop */
+.ticker-card--lg { min-height: 92px; }
+.ticker-card--md { min-height: 80px; }
+.ticker-card--sm { min-height: 70px; }
 
 /* Top accent bar — CSUN red gradient */
 .ticker-card::before {
@@ -456,10 +485,24 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   opacity: 0.9;
 }
 
-/* Shimmer disabled on ticker cards — extra transforms caused subtle
-   stutter alongside the column scroll on some GPUs. */
+/* Soft glare — long period + low contrast keeps motion smooth vs. scroll */
 .ticker-card::after {
-  display: none;
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: -45%;
+  width: 42%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+  transform: skewX(-16deg);
+  opacity: 0;
+  animation: ticker-card-shimmer 14s ease-in-out infinite;
+  animation-delay: var(--card-shimmer-delay, 0s);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+@keyframes ticker-card-shimmer {
+  0%, 72%, 100% { transform: translateX(0) skewX(-16deg); opacity: 0; }
+  78%           { opacity: 0.45; }
+  94%           { transform: translateX(340%) skewX(-16deg); opacity: 0; }
 }
 
 .ticker-card__logo {
@@ -467,13 +510,39 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
 }
 .ticker-card__logo img {
-  max-height: 48px;
+  max-height: 50px;
   max-width: 100%;
   object-fit: contain;
   filter: saturate(1.05);
+}
+.ticker-card--md .ticker-card__logo img { max-height: 44px; }
+.ticker-card--sm .ticker-card__logo img { max-height: 38px; }
+
+.ticker-card--hiring::before {
+  background: linear-gradient(90deg, #1a7a3a, #2bb568, #1a7a3a);
+}
+
+.ticker-card__chip {
+  position: absolute;
+  top: 8px; right: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(210,32,48,0.35);
+  pointer-events: none;
+}
+.ticker-card--hiring .ticker-card__chip {
+  background: #1f8f4a;
+  box-shadow: 0 2px 6px rgba(31,143,74,0.35);
 }
 
 .ticker-empty {
@@ -488,6 +557,7 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 @media (prefers-reduced-motion: reduce) {
   .ticker-column__track,
   .ticker-spotlight,
+  .ticker-card::after,
   .partner-scroll-shell.is-marquee .partner-track {
     animation: none !important;
   }
