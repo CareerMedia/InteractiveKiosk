@@ -12,10 +12,25 @@
   --m-header-h: 64px;
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
-html, body {
-  margin: 0; padding: 0; height: 100%;
+html {
+  /* Prevent the page from growing wider than the visual viewport */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
   background: var(--m-bg);
   color: var(--m-ink);
   font-family: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -23,13 +38,18 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
   overscroll-behavior: none;
+  position: relative;
 }
 
 .mobile-app {
   display: grid;
   grid-template-rows: auto 1fr;
-  height: 100dvh; /* respects mobile URL bars */
-  height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 100dvh;
+  min-height: 100vh;
+  margin: 0;
 }
 
 /* ─── Header ─── */
@@ -37,9 +57,15 @@ html, body {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px calc(10px + env(safe-area-inset-top, 0px)) 14px;
-  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding:
+    calc(10px + env(safe-area-inset-top, 0px))
+    max(12px, env(safe-area-inset-right, 0px))
+    10px
+    max(12px, env(safe-area-inset-left, 0px));
   background: #fff;
   border-bottom: 1px solid var(--m-line);
   box-shadow: 0 2px 10px rgba(0,0,0,0.04);
@@ -55,10 +81,13 @@ html, body {
 }
 
 .m-logo {
+  flex: 0 1 auto;
   height: 38px;
   width: auto;
-  flex: 0 0 auto;
+  max-width: min(42vw, 168px);
+  max-height: 38px;
   object-fit: contain;
+  object-position: left center;
 }
 
 .m-title-wrap {
@@ -72,20 +101,26 @@ html, body {
 .m-title {
   font-family: 'Barlow Condensed', 'Barlow', sans-serif;
   font-weight: 800;
-  font-size: clamp(18px, 4.6vw, 22px);
-  line-height: 1.1;
+  font-size: clamp(15px, 4.2vw, 22px);
+  line-height: 1.15;
   letter-spacing: 0.01em;
   color: var(--m-ink);
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ─── Map stage ─── */
 .m-stage {
   position: relative;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
   background: #f6f7f8;
 }
 
@@ -93,9 +128,13 @@ html, body {
   position: absolute;
   inset: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
+  min-width: 0;
   border: 0;
   display: block;
+  /* Helps the iframe respect a shrinking flex/grid ancestor on WebKit */
+  box-sizing: border-box;
 }
 
 /* ─── Loading overlay ─── */
