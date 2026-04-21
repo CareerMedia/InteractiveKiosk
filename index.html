@@ -61,7 +61,7 @@
             <!-- HOME VIEW -->
             <section class="view view--home is-active" id="view-home">
 
-              <!-- FEATURED EMPLOYERS (Partners) -->
+              <!-- OUR EMPLOYER PARTNERS -->
               <div class="featured-section">
                 <div class="diamond-badge-wrap">
                   <div class="diamond-badge-chevrons diamond-badge-chevrons--left">
@@ -73,24 +73,27 @@
                         <path d="M3 21h18M6 21V7l6-4 6 4v14M9 21v-6h6v6"/>
                       </svg>
                     </div>
-                    Featured Employers
+                    Our Employer Partners
                   </div>
                   <div class="diamond-badge-chevrons diamond-badge-chevrons--right">
                     <span class="chev chev--2"></span><span class="chev chev--1"></span>
                   </div>
                 </div>
-                <div class="partner-scroll-shell">
-                  <div class="partner-logos-row" id="partner-logos-row">
-                    <div class="partner-empty-hint">Add partner logos to <code>assets/employers/partners/</code></div>
+                <div class="partner-scroll-shell" id="partner-scroll-shell">
+                  <div class="partner-track" id="partner-track">
+                    <div class="partner-logos-row" id="partner-logos-row">
+                      <div class="partner-empty-hint">Add partner logos to <code>assets/employers/partners/</code></div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <!-- ATTENDING EMPLOYERS — animated ticker -->
+              <!-- PARTICIPATING EMPLOYERS — multi-column vertical marquee -->
               <div class="attendees-section">
                 <div class="section-label">Participating Employers</div>
                 <div class="logo-ticker-shell" id="logo-ticker-shell">
-                  <div class="logo-ticker-track" id="logo-ticker-track"></div>
+                  <div class="ticker-spotlight" aria-hidden="true"></div>
+                  <div class="ticker-grid" id="ticker-grid"></div>
                 </div>
               </div>
             </section>

@@ -31,7 +31,10 @@ const els = {
 
   // Home view content
   partnerLogosRow:    document.getElementById('partner-logos-row'),
-  logoTickerTrack:    document.getElementById('logo-ticker-track'),
+  partnerTrack:       document.getElementById('partner-track'),
+  partnerScrollShell: document.getElementById('partner-scroll-shell'),
+  tickerGrid:         document.getElementById('ticker-grid'),
+  tickerShell:        document.getElementById('logo-ticker-shell'),
 
   // Views
   viewHome:           document.getElementById('view-home'),
@@ -201,54 +204,145 @@ async function fetchLogosFromGitHub(dir) {
   return items;
 }
 
-// ─── PARTNER LOGO ROW ────────────────────────────────────
-function renderPartnerRow() {
-  clearChildren(els.partnerLogosRow);
-  if (!state.partnerLogos.length) {
-    const hint = document.createElement('div');
-    hint.className = 'partner-empty-hint';
-    hint.innerHTML = 'Add partner logos to <code>assets/employers/partners/</code>';
-    els.partnerLogosRow.appendChild(hint);
-    return;
-  }
+// ─── OUR EMPLOYER PARTNERS ───────────────────────────────
+// Row is centered by default. If the logos overflow the shell, clone the row
+// and kick off a seamless left→right marquee.
+function buildPartnerCards(target) {
   state.partnerLogos.forEach((logo) => {
     const card = document.createElement('div');
     card.className = 'partner-logo-card';
     const img = document.createElement('img');
-    img.src = logo.src; img.alt = logo.name; img.loading = 'lazy';
+    img.src = logo.src;
+    img.alt = logo.name;
+    img.loading = 'lazy';
     card.appendChild(img);
-    els.partnerLogosRow.appendChild(card);
+    target.appendChild(card);
   });
 }
 
-// ─── ATTENDING EMPLOYERS: ANIMATED TICKER ────────────────
+function renderPartnerRow() {
+  if (!els.partnerTrack || !els.partnerLogosRow) return;
+
+  // Reset any previous marquee state
+  els.partnerScrollShell.classList.remove('is-marquee');
+  clearChildren(els.partnerTrack);
+
+  if (!state.partnerLogos.length) {
+    const hint = document.createElement('div');
+    hint.className = 'partner-empty-hint';
+    hint.innerHTML = 'Add partner logos to <code>assets/employers/partners/</code>';
+    const row = document.createElement('div');
+    row.className = 'partner-logos-row';
+    row.id = 'partner-logos-row';
+    row.appendChild(hint);
+    els.partnerTrack.appendChild(row);
+    els.partnerLogosRow = row;
+    return;
+  }
+
+  // Build primary row (re-used both for center layout and marquee).
+  const primary = document.createElement('div');
+  primary.className = 'partner-logos-row';
+  primary.id = 'partner-logos-row';
+  buildPartnerCards(primary);
+  els.partnerTrack.appendChild(primary);
+  els.partnerLogosRow = primary;
+
+  // Measure overflow after layout. If the row is wider than the shell,
+  // clone it once for a seamless loop and enable the marquee.
+  requestAnimationFrame(() => {
+    const shell = els.partnerScrollShell;
+    const overflow = primary.scrollWidth > shell.clientWidth + 4;
+    if (!overflow) return;
+
+    const clone = document.createElement('div');
+    clone.className = 'partner-logos-row';
+    clone.setAttribute('aria-hidden', 'true');
+    buildPartnerCards(clone);
+    els.partnerTrack.appendChild(clone);
+
+    // Scale duration with the number of logos — keeps motion readable.
+    const duration = Math.max(24, Math.round(state.partnerLogos.length * 2.2));
+    els.partnerTrack.style.setProperty('--partner-duration', `${duration}s`);
+    shell.classList.add('is-marquee');
+  });
+}
+
+// ─── PARTICIPATING EMPLOYERS — 5-column vertical marquee ──
+// Distributes logos round-robin across N columns, duplicates each column's
+// list for a seamless top→bottom scroll. Built to handle ~100 logos.
+const TICKER_COLUMNS = 5;
+const TICKER_SIZES = ['ticker-card--lg', 'ticker-card--md', 'ticker-card--sm'];
+
+function makeTickerCard(logo, index) {
+  const card = document.createElement('div');
+  // Rotate sizes so the cards look rhythmic, not uniform
+  const sizeCls = TICKER_SIZES[index % TICKER_SIZES.length];
+  const isHiring = index % 11 === 3; // sprinkle a few green "HIRING" chips
+  card.className = `ticker-card ${sizeCls}${isHiring ? ' ticker-card--hiring' : ''}`;
+  // stagger the shimmer so cards flash at different times
+  card.style.setProperty('--card-shimmer-delay', `${(index % 7) * 0.9}s`);
+
+  const logoWrap = document.createElement('div');
+  logoWrap.className = 'ticker-card__logo';
+  const img = document.createElement('img');
+  img.src = logo.src;
+  img.alt = logo.name;
+  img.loading = 'lazy';
+  logoWrap.appendChild(img);
+  card.appendChild(logoWrap);
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'ticker-card__name';
+  nameEl.textContent = logo.name;
+  card.appendChild(nameEl);
+
+  if (isHiring) {
+    const chip = document.createElement('span');
+    chip.className = 'ticker-card__chip';
+    chip.textContent = 'Hiring';
+    card.appendChild(chip);
+  }
+
+  return card;
+}
+
 function buildTicker() {
-  clearChildren(els.logoTickerTrack);
+  if (!els.tickerGrid) return;
+  clearChildren(els.tickerGrid);
+
   if (!state.attendeeLogos.length) {
     const empty = document.createElement('div');
     empty.className = 'ticker-empty';
     empty.textContent = 'Add attendee logos to assets/employers/attendees/';
-    els.logoTickerTrack.appendChild(empty);
+    els.tickerGrid.appendChild(empty);
     return;
   }
 
-  [0, 1].forEach(() => {
-    const strip = document.createElement('div');
-    strip.className = 'ticker-strip';
-    state.attendeeLogos.forEach((logo) => {
-      const card = document.createElement('div');
-      card.className = 'ticker-card';
-      const img = document.createElement('img');
-      img.src = logo.src; img.alt = logo.name; img.loading = 'lazy';
-      card.appendChild(img);
-      strip.appendChild(card);
-    });
-    els.logoTickerTrack.appendChild(strip);
+  // Round-robin distribute logos into N columns so each column looks mixed
+  const columns = Array.from({ length: TICKER_COLUMNS }, () => []);
+  state.attendeeLogos.forEach((logo, i) => {
+    columns[i % TICKER_COLUMNS].push(logo);
   });
 
-  const speed = Math.max(30, state.attendeeLogos.length * 1.4);
-  els.logoTickerTrack.style.setProperty('--ticker-duration', `${speed}s`);
-  els.logoTickerTrack.classList.add('is-running');
+  columns.forEach((logos, colIndex) => {
+    if (!logos.length) return;
+    const col = document.createElement('div');
+    col.className = 'ticker-column';
+
+    const track = document.createElement('div');
+    track.className = 'ticker-column__track';
+
+    // Build two identical stacks for seamless looping (-50% translate)
+    [0, 1].forEach(() => {
+      logos.forEach((logo, i) => {
+        track.appendChild(makeTickerCard(logo, i + colIndex));
+      });
+    });
+
+    col.appendChild(track);
+    els.tickerGrid.appendChild(col);
+  });
 }
 
 // ─── EVENTS FEED (More Events view) ──────────────────────
@@ -830,6 +924,15 @@ function bindEvents() {
     window.addEventListener(ev, () => {
       if (state.activeView !== 'home') resetInactivityTimer();
     }, { passive: true });
+  });
+
+  // Re-measure partner marquee on resize (debounced)
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (state.partnerLogos.length) renderPartnerRow();
+    }, 200);
   });
 }
 

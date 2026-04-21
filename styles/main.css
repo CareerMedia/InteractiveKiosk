@@ -233,36 +233,64 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   stroke-linecap: round; stroke-linejoin: round;
 }
 
+/* Partner shell — centers the row by default, turns into a left→right
+   marquee only when JS detects that the row overflows. */
 .partner-scroll-shell {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--light-gray) transparent;
-  padding-bottom: 4px;
+  position: relative;
+  overflow: hidden;
+  padding: 2px 0 4px;
+  --edge-fade: 0%;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black var(--edge-fade), black calc(100% - var(--edge-fade)), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0%, black var(--edge-fade), black calc(100% - var(--edge-fade)), transparent 100%);
 }
-.partner-scroll-shell::-webkit-scrollbar { height: 4px; }
-.partner-scroll-shell::-webkit-scrollbar-thumb { background: var(--light-gray); border-radius: 999px; }
+.partner-scroll-shell.is-marquee { --edge-fade: 4%; }
+
+.partner-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.partner-scroll-shell.is-marquee .partner-track {
+  width: max-content;
+  justify-content: flex-start;
+  animation: partner-marquee var(--partner-duration, 45s) linear infinite;
+}
 
 .partner-logos-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: max-content;
-  padding: 2px 2px 4px;
+  gap: 14px;
+  flex-shrink: 0;
+  padding: 2px 7px 4px;
 }
 
 .partner-logo-card {
+  position: relative;
   flex: 0 0 auto;
   background: var(--white);
   border: 1.5px solid var(--light-gray);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  padding: 6px 14px;
-  min-width: 100px; height: 54px;
+  padding: 8px 18px;
+  min-width: 118px; height: 60px;
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
-.partner-logo-card img { max-height: 32px; max-width: 90px; object-fit: contain; }
-.partner-empty-hint { color: var(--ink-soft); font-size: 0.82rem; font-style: italic; }
+.partner-logo-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 12%; right: 12%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--red), transparent);
+  opacity: 0.85;
+}
+.partner-logo-card img { max-height: 36px; max-width: 104px; object-fit: contain; }
+.partner-empty-hint { color: var(--ink-soft); font-size: 0.82rem; font-style: italic; padding: 6px 10px; }
+
+@keyframes partner-marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 
 .attendees-section {
   min-height: 0;
@@ -283,52 +311,204 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   content: ''; flex: 1; height: 1px; background: var(--light-gray);
 }
 
+/* ══════════════════════════════════════════════════
+   PARTICIPATING EMPLOYERS
+   5-column vertical marquee, built for ~100 logos.
+═════════════════════════════════════════════════════ */
 .logo-ticker-shell {
+  position: relative;
   overflow: hidden;
   border-radius: var(--radius);
-  background: var(--off-white);
   border: 1.5px solid var(--light-gray);
-  position: relative;
+  background:
+    radial-gradient(1200px 300px at 50% -20%, rgba(210,32,48,0.08), transparent 60%),
+    radial-gradient(900px 260px at 100% 120%, rgba(210,32,48,0.05), transparent 60%),
+    linear-gradient(180deg, #fafafa 0%, #f1f1f1 100%);
   min-height: 0;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  /* vertical fade-in/out at top and bottom */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%);
 }
 
-.logo-ticker-track {
-  display: flex;
-  align-items: center;
+/* Moving spotlight that sweeps diagonally — keeps the section "alive"
+   without distracting from logos. */
+.ticker-spotlight {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,255,255,0.55), transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0.8;
+  animation: ticker-spotlight 14s ease-in-out infinite;
+  z-index: 1;
+}
+@keyframes ticker-spotlight {
+  0%   { transform: translate(-30%, -20%); }
+  50%  { transform: translate(30%,  20%); }
+  100% { transform: translate(-30%, -20%); }
+}
+
+.ticker-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  padding: 10px;
   height: 100%;
-  width: max-content;
+  min-height: 0;
+  z-index: 2;
 }
-.logo-ticker-track.is-running {
-  animation: ticker-scroll var(--ticker-duration, 60s) linear infinite;
-}
-.logo-ticker-track:hover { animation-play-state: paused; }
 
-.ticker-strip {
-  display: flex; align-items: center; gap: 10px; padding: 10px;
-  flex-shrink: 0;
+.ticker-column {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  border-radius: 10px;
 }
+
+.ticker-column__track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 0;
+  will-change: transform;
+  animation: ticker-scroll-down var(--col-duration, 60s) linear infinite;
+  animation-delay: var(--col-delay, 0s);
+}
+
+/* Slight speed + offset variation per column for a layered, dynamic feel */
+.ticker-column:nth-child(1) .ticker-column__track { --col-duration: 52s; --col-delay: -3s; }
+.ticker-column:nth-child(2) .ticker-column__track { --col-duration: 64s; --col-delay: -18s; }
+.ticker-column:nth-child(3) .ticker-column__track { --col-duration: 46s; --col-delay: -9s; }
+.ticker-column:nth-child(4) .ticker-column__track { --col-duration: 70s; --col-delay: -28s; }
+.ticker-column:nth-child(5) .ticker-column__track { --col-duration: 58s; --col-delay: -12s; }
+
+@keyframes ticker-scroll-down {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+/* Dynamic logo card  */
 .ticker-card {
+  position: relative;
   flex: 0 0 auto;
-  background: var(--white);
-  border: 1.5px solid var(--light-gray);
-  border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  padding: 8px 14px;
-  width: 130px; height: 72px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  justify-items: center;
+  padding: 14px 12px 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 14px rgba(0,0,0,0.06);
+  overflow: hidden;
+  transition: transform 260ms ease, box-shadow 260ms ease;
 }
-.ticker-card img { max-height: 44px; max-width: 100px; object-fit: contain; }
+
+/* Top accent bar — CSUN red gradient */
+.ticker-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--red-light), var(--red), var(--red-dark));
+  opacity: 0.9;
+}
+
+/* Periodic shimmer sweep — gentle highlight moving across */
+.ticker-card::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: -40%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.75) 50%, transparent 100%);
+  transform: skewX(-18deg);
+  animation: ticker-card-shimmer 6s ease-in-out infinite;
+  animation-delay: var(--card-shimmer-delay, 0s);
+  pointer-events: none;
+}
+@keyframes ticker-card-shimmer {
+  0%, 70%, 100% { transform: translateX(0) skewX(-18deg); opacity: 0; }
+  80%           { opacity: 0.55; }
+  95%           { transform: translateX(360%) skewX(-18deg); opacity: 0; }
+}
+
+/* Sizes — plan for big: Bigger height when section has room, logos
+   scale inside via object-fit. Different cards get subtle accent variants. */
+.ticker-card--lg { min-height: 96px; }
+.ticker-card--md { min-height: 84px; }
+.ticker-card--sm { min-height: 74px; }
+
+.ticker-card__logo {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+}
+.ticker-card__logo img {
+  max-height: 52px;
+  max-width: 100%;
+  object-fit: contain;
+  filter: saturate(1.05);
+}
+.ticker-card--md .ticker-card__logo img { max-height: 46px; }
+.ticker-card--sm .ticker-card__logo img { max-height: 40px; }
+
+.ticker-card__name {
+  margin-top: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* Occasional "HIRING" chip injected by JS for visual interest */
+.ticker-card--hiring::before {
+  background: linear-gradient(90deg, #1a7a3a, #2bb568, #1a7a3a);
+}
+.ticker-card__chip {
+  position: absolute;
+  top: 8px; right: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(210,32,48,0.35);
+}
+.ticker-card--hiring .ticker-card__chip {
+  background: #1f8f4a;
+  box-shadow: 0 2px 6px rgba(31,143,74,0.35);
+}
+
 .ticker-empty {
+  grid-column: 1 / -1;
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 100%;
   color: var(--ink-soft); font-size: 0.88rem; font-style: italic;
   padding: 20px;
 }
-@keyframes ticker-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+
+/* Respect reduced motion — freeze everything in place */
+@media (prefers-reduced-motion: reduce) {
+  .ticker-column__track,
+  .ticker-spotlight,
+  .ticker-card::after,
+  .partner-scroll-shell.is-marquee .partner-track {
+    animation: none !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════
@@ -822,8 +1002,12 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 /* ══════════════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .ticker-grid { grid-template-columns: repeat(4, 1fr); }
+}
 @media (max-width: 900px) {
   :root { --sidebar-w: 82px; }
+  .ticker-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 700px) {
   .stage { grid-template-columns: 1fr; }
@@ -838,4 +1022,5 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   .cta-bar { grid-row: 3 / 4; flex-direction: column; align-items: stretch; }
   .primary-cta { width: 100%; text-align: center; }
   .instagram-modal__content { grid-template-columns: 1fr; }
+  .ticker-grid { grid-template-columns: repeat(2, 1fr); }
 }
