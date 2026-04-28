@@ -33,6 +33,17 @@ html, body {
   touch-action: manipulation;
 }
 
+/* Map view: block browser pinch-zoom on the shell; map iframe handles its own gestures */
+html.kiosk-map-active,
+html.kiosk-map-active body {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+html.kiosk-map-active #view-map,
+html.kiosk-map-active #view-map iframe {
+  touch-action: auto;
+}
+
 img { max-width: 100%; display: block; }
 button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; cursor: pointer; text-decoration: none; color: inherit; }
 
@@ -58,22 +69,45 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 24px;
-  gap: 16px;
+  padding: 8px 16px;
+  gap: 12px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.08);
   z-index: 5;
   position: relative;
   min-height: var(--topbar-h);
 }
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.brand-logo {
+  height: 34px;
+  width: auto;
+  max-width: min(200px, 28vw);
+  object-fit: contain;
+  flex-shrink: 0;
+}
 
-.brand-lockup { display: flex; align-items: center; gap: 14px; }
-.brand-logo   { height: 48px; width: auto; object-fit: contain; }
-
-.topbar-headline { display: flex; flex-direction: column; gap: 2px; }
+.topbar-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
 .topbar-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1.7rem; font-weight: 900; line-height: 1;
-  text-transform: uppercase; letter-spacing: 0.01em;
+  font-size: clamp(1.05rem, 2.6vw, 1.55rem);
+  font-weight: 900;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .topbar-title span { color: var(--red); }
 .topbar-subtitle {
@@ -81,7 +115,12 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.12em;
 }
 
-.topbar-meta { display: flex; align-items: center; gap: 10px; }
+.topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .meta-pill {
   background: var(--red); color: var(--white);
   font-family: 'Barlow Condensed', sans-serif;
@@ -343,7 +382,7 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 
 /* ══════════════════════════════════════════════════
    PARTICIPATING EMPLOYERS
-   5-column vertical marquee, built for ~100 logos.
+   3-column vertical marquee, built for ~100 logos.
 ═════════════════════════════════════════════════════ */
 .logo-ticker-shell {
   position: relative;
@@ -381,7 +420,7 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 .ticker-grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding: 10px;
   height: 100%;
@@ -573,36 +612,64 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 .view--web.is-active { display: grid !important; }
 
 .web-toolbar {
-  display: flex; align-items: center; gap: 14px;
-  padding: 10px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 6px;
+  padding: 10px 14px;
+  padding-right: max(14px, env(safe-area-inset-right, 0px));
   background: var(--off-white);
   border-bottom: 1.5px solid var(--light-gray);
   min-height: 48px;
 }
 .web-toolbar__title {
+  grid-column: 1;
+  grid-row: 1;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1.1rem; font-weight: 800; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .web-toolbar__url {
-  flex: 1;
-  font-size: 0.82rem;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 0.78rem;
   color: var(--ink-soft);
   letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: 'Barlow', sans-serif;
+  min-width: 0;
 }
 .web-toolbar__btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 34px; padding: 0 14px; border-radius: 999px;
-  background: var(--white); border: 1.5px solid var(--light-gray);
+  grid-column: 2;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--white);
+  border: 1.5px solid var(--light-gray);
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--ink);
   transition: background 150ms ease;
+  flex-shrink: 0;
+  justify-self: end;
 }
 .web-toolbar__btn:hover { background: var(--light-gray); }
 
@@ -1088,12 +1155,8 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 /* ══════════════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════════════ */
-@media (max-width: 1100px) {
-  .ticker-grid { grid-template-columns: repeat(4, 1fr); }
-}
 @media (max-width: 900px) {
   :root { --sidebar-w: 82px; }
-  .ticker-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 700px) {
   .stage { grid-template-columns: 1fr; }
@@ -1108,5 +1171,4 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   .cta-bar { grid-row: 3 / 4; flex-direction: column; align-items: stretch; }
   .primary-cta { width: 100%; text-align: center; }
   .instagram-modal__content { grid-template-columns: 1fr; }
-  .ticker-grid { grid-template-columns: repeat(2, 1fr); }
 }

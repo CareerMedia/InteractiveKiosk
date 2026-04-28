@@ -285,12 +285,13 @@ function renderPartnerRow() {
   });
 }
 
-// ─── PARTICIPATING EMPLOYERS — 5-column vertical marquee ──
+// ─── PARTICIPATING EMPLOYERS — 3-column vertical marquee ──
 // Distributes logos round-robin across N columns. Each column uses two
 // `.ticker-column__chunk` wrappers so translateY(-50%) loops perfectly
 // (gap lives *inside* each chunk, not between duplicate halves).
 // Pointer-drag on a card pauses the column and “knocks” neighbours aside.
-const TICKER_COLUMNS = 5;
+// Three columns fits narrow / portrait kiosk layouts (e.g. 32" TV vertical).
+const TICKER_COLUMNS = 3;
 const TICKER_SIZES = ['ticker-card--lg', 'ticker-card--md', 'ticker-card--sm'];
 
 const tickerDrag = {
@@ -813,14 +814,21 @@ async function fetchThroughProxy(url) {
 function rewriteHtmlForFraming(html, baseUrl) {
   let out = html;
 
-  // Inject <base> so relative assets + links resolve against the real origin.
+  // Drop any author viewport so we can apply a kiosk-friendly scale (portrait TVs
+  // otherwise render the page like an oversized phone).
+  out = out.replace(/<meta[^>]+name=["']viewport["'][^>]*>/gi, '');
+
+  // Inject <base> + viewport so relative assets resolve and text fits the iframe.
   const baseTag = `<base href="${baseUrl}">`;
+  const kioskViewport =
+    '<meta name="viewport" content="width=device-width, initial-scale=0.72, minimum-scale=0.45, maximum-scale=2.5, viewport-fit=cover">';
+  const headInject = `\n${baseTag}\n${kioskViewport}\n`;
   if (/<head[^>]*>/i.test(out)) {
-    out = out.replace(/<head[^>]*>/i, (m) => `${m}\n${baseTag}`);
+    out = out.replace(/<head[^>]*>/i, (m) => `${m}${headInject}`);
   } else if (/<html[^>]*>/i.test(out)) {
-    out = out.replace(/<html[^>]*>/i, (m) => `${m}<head>${baseTag}</head>`);
+    out = out.replace(/<html[^>]*>/i, (m) => `${m}<head>${baseTag}${kioskViewport}</head>`);
   } else {
-    out = `<head>${baseTag}</head>${out}`;
+    out = `<head>${baseTag}${kioskViewport}</head>${out}`;
   }
 
   // Strip <meta http-equiv="X-Frame-Options">, Content-Security-Policy, refresh.
@@ -835,6 +843,16 @@ function rewriteHtmlForFraming(html, baseUrl) {
   out = out.replace(/target=["']_parent["']/gi, 'target="_self"');
 
   return out;
+}
+
+const VIEWPORT_DEFAULT = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+const VIEWPORT_MAP_NO_ZOOM =
+  'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+
+function setShellZoomForMap(active) {
+  const meta = document.getElementById('viewport-meta');
+  if (meta) meta.setAttribute('content', active ? VIEWPORT_MAP_NO_ZOOM : VIEWPORT_DEFAULT);
+  document.documentElement.classList.toggle('kiosk-map-active', Boolean(active));
 }
 
 async function loadIntoFrame({ url, frame, loadingEl, fallbackEl, stateKey }) {
@@ -944,6 +962,9 @@ function setView(viewId) {
   state.activeView = viewId;
 
   if (viewId !== 'map') closeMobileMapModal();
+
+  // Map view: lock OS/browser pinch-zoom to the page shell so only the map iframe zooms.
+  setShellZoomForMap(viewId === 'map');
 
   // Load content lazily
   if (viewId === 'map' && !state.mapLoaded) {
