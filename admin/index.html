@@ -279,6 +279,31 @@
               </tbody>
             </table>
           </div>
+
+          <div class="panel-head" style="margin-top: 32px;">
+            <h2 class="panel-title">Email System Test</h2>
+            <p class="panel-sub">
+              Send a test email through Brevo to verify the server connection.
+              Requires the API server to be running with Brevo environment variables configured.
+            </p>
+          </div>
+
+          <form id="jobs-email-test-form" class="map-form" autocomplete="off">
+            <div class="field-row">
+              <label class="field">
+                <span class="field__label">Test recipient email</span>
+                <input type="email" id="jobs-test-email" class="field__input" placeholder="admin@example.com" required />
+              </label>
+              <label class="field">
+                <span class="field__label">Test name (optional)</span>
+                <input type="text" id="jobs-test-name" class="field__input" placeholder="Bryce" />
+              </label>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="jobs-test-send-btn">Send Test Email</button>
+            </div>
+            <div class="inline-toast is-hidden" id="jobs-email-test-toast"></div>
+          </form>
         </section>
 
       </main>

@@ -24,7 +24,7 @@ function jobBlock(job) {
         <p style="margin:0 0 4px;font-size:13px;color:#777;">Posted ${posted || '—'}</p>
         <p style="margin:0 0 10px;font-size:13px;color:#d22030;">Expires ${expires || '—'}</p>
         ${summary ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.5;color:#333;">${summary}</p>` : ''}
-        <a href="${url}" style="display:inline-block;padding:10px 18px;background:#d22030;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View Job &amp; Apply</a>
+        <a href="${url}" style="display:inline-block;padding:10px 18px;background:#d22030;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View Job on Handshake</a>
       </td>
     </tr>`;
 }
@@ -36,7 +36,7 @@ function jobBlockText(job) {
     `Posted: ${formatJobDate(job.pubDate) || '—'}`,
     `Expires: ${formatJobDate(job.expiresAt) || '—'}`,
     job.summary ? job.summary : '',
-    job.applicationUrl ? `Apply: ${job.applicationUrl}` : '',
+    job.applicationUrl ? `View on Handshake: ${job.applicationUrl}` : '',
   ].filter(Boolean);
   return lines.join('\n');
 }
@@ -138,3 +138,70 @@ export function isValidEmail(email) {
   if (!email || typeof email !== 'string') return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
+
+export function buildTestEmail({ testName }) {
+  const senderName = process.env.BREVO_SENDER_NAME || 'CSUN Career Center';
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || '';
+  const envName = process.env.NODE_ENV || 'production';
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  const greeting = testName ? `Hi ${escapeHtml(testName)},` : 'Hello,';
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:24px;font-family:Barlow,'Helvetica Neue',Arial,sans-serif;background:#f5f5f5;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:28px;box-shadow:0 4px 18px rgba(0,0,0,0.08);">
+    <h1 style="margin:0 0 16px;font-size:22px;color:#d22030;">CSUN Career Center Kiosk Email Test</h1>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#333;">${greeting}</p>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#333;">
+      This is a test email from the CSUN Career Center Job Opportunities kiosk.
+      If you received this, Brevo is connected correctly.
+    </p>
+    <p style="margin:0;font-size:13px;color:#777;line-height:1.5;">
+      Sent: ${escapeHtml(timestamp)} (Pacific)<br>
+      Environment: ${escapeHtml(envName)}<br>
+      From: ${escapeHtml(senderName)} &lt;${escapeHtml(senderEmail)}&gt;
+    </p>
+  </div>
+</body>
+</html>`;
+
+  const textContent = [
+    'CSUN Career Center Kiosk Email Test',
+    '',
+    greeting,
+    '',
+    'This is a test email from the CSUN Career Center Job Opportunities kiosk.',
+    'If you received this, Brevo is connected correctly.',
+    '',
+    `Sent: ${timestamp} (Pacific)`,
+    `Environment: ${envName}`,
+    `From: ${senderName} <${senderEmail}>`,
+  ].join('\n');
+
+  return { htmlContent, textContent };
+}
+
+export async function sendTestEmail({ testEmail, testName }) {
+  const { htmlContent, textContent } = buildTestEmail({ testName });
+  return sendViaBrevo({
+    toEmail: testEmail,
+    toName: testName || testEmail,
+    subject: 'CSUN Career Center Kiosk Email Test',
+    htmlContent,
+    textContent,
+  });
+}
+
+function safeErrorMessage(err) {
+  const msg = String(err?.message || 'Email could not be sent.');
+  if (msg.includes('BREVO_API_KEY') || msg.includes('BREVO_SENDER')) {
+    return 'Brevo is not configured on the server. Check environment variables.';
+  }
+  if (msg.toLowerCase().includes('api-key') || msg.toLowerCase().includes('unauthorized')) {
+    return 'Brevo rejected the request. Verify your API key and sender email.';
+  }
+  return msg.length > 200 ? 'Email could not be sent. Check server logs for details.' : msg;
+}
+
+export { safeErrorMessage };

@@ -3,15 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { loadJobs, sendJobListEmail } from './shared/jobs-loader.js';
-import { formatJobDate } from './shared/jobs-parser.js';
-
-const SORT_OPTIONS = [
-  { id: 'newest', label: 'Newest first' },
-  { id: 'oldest', label: 'Oldest first' },
-  { id: 'expiring', label: 'Expiring soon' },
-  { id: 'employer', label: 'Employer A-Z' },
-  { id: 'title', label: 'Job title A-Z' },
-];
+import { formatJobDate, getEmployerInitials } from './shared/jobs-parser.js';
 
 const PAGE_SIZE = 12;
 
@@ -23,11 +15,11 @@ const state = {
   searchQuery: '',
   activeSearch: '',
   sort: 'newest',
-  activeFilters: { feed: 'all' },
   page: 1,
   selected: new Set(),
   cartOpen: false,
   emailModalOpen: false,
+  detailJobId: null,
 };
 
 let els = {};
@@ -110,62 +102,22 @@ function bindJobsEvents() {
     if (e.target === els.jobsEmailBackdrop) closeEmailModal();
   });
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.emailModalOpen) closeEmailModal();
+  els.jobsDetailClose?.addEventListener('click', closeJobDetail);
+  els.jobsDetailBackdrop?.addEventListener('click', (e) => {
+    if (e.target === els.jobsDetailBackdrop) closeJobDetail();
   });
-}
 
-function getFilterGroups() {
-  const groups = { feed: new Set() };
-  const fields = ['industry', 'jobType', 'location', 'employer'];
-
-  for (const job of state.allJobs) {
-    if (job.feedTitle) groups.feed.add(job.feedTitle);
-    for (const f of fields) {
-      if (!groups[f]) groups[f] = new Set();
-      if (job[f]?.trim()) groups[f].add(job[f].trim());
-    }
-    for (const tag of job.tags || []) {
-      if (!groups.tags) groups.tags = new Set();
-      if (tag?.trim()) groups.tags.add(tag.trim());
-    }
-  }
-
-  const labels = {
-    feed: 'Feed',
-    industry: 'Industry',
-    jobType: 'Job Type',
-    location: 'Location',
-    employer: 'Employer',
-    tags: 'Tags',
-  };
-
-  return Object.entries(groups)
-    .filter(([, set]) => set.size > 0)
-    .map(([key, set]) => ({
-      key,
-      label: labels[key] || key,
-      values: [...set].sort((a, b) => a.localeCompare(b)),
-    }));
-}
-
-function matchesFilters(job) {
-  const f = state.activeFilters;
-  if (f.feed && f.feed !== 'all' && job.feedTitle !== f.feed) return false;
-  if (f.industry && job.industry !== f.industry) return false;
-  if (f.jobType && job.jobType !== f.jobType) return false;
-  if (f.location && job.location !== f.location) return false;
-  if (f.employer && job.employer !== f.employer) return false;
-  if (f.tags && !(job.tags || []).includes(f.tags)) return false;
-  return true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (state.emailModalOpen) closeEmailModal();
+    else if (state.detailJobId) closeJobDetail();
+  });
 }
 
 function matchesSearch(job, q) {
   if (!q) return true;
   const hay = [
-    job.title, job.displayTitle, job.employer, job.descriptionText,
-    job.summary, job.industry, job.location, job.jobType, job.feedTitle,
-    ...(job.tags || []),
+    job.title, job.displayTitle, job.employer, job.descriptionText, job.summary,
   ].join(' ').toLowerCase();
   return hay.includes(q.toLowerCase());
 }
@@ -191,9 +143,16 @@ function sortJobs(jobs) {
 }
 
 function getFilteredJobs() {
-  return sortJobs(
-    state.allJobs.filter((j) => matchesFilters(j) && matchesSearch(j, state.activeSearch)),
-  );
+  return sortJobs(state.allJobs.filter((j) => matchesSearch(j, state.activeSearch)));
+}
+
+function getJobById(id) {
+  return state.allJobs.find((j) => String(j.id) === String(id));
+}
+
+function avatarHtml(employer, size = 'md') {
+  const initials = getEmployerInitials(employer);
+  return `<div class="job-avatar job-avatar--${size}" aria-hidden="true">${esc(initials)}</div>`;
 }
 
 function showJobsSkeleton() {
@@ -204,73 +163,35 @@ function showJobsSkeleton() {
   if (els.jobsSummary) els.jobsSummary.textContent = 'Loading jobs…';
 }
 
-function renderFilterPills() {
-  if (!els.jobsFilters) return;
-  const groups = getFilterGroups();
-  const pills = ['<button type="button" class="jobs-pill' + (state.activeFilters.feed === 'all' ? ' jobs-pill--active' : '') + '" data-filter="feed" data-value="all">All Feeds</button>'];
-
-  for (const g of groups) {
-    if (g.key === 'feed') {
-      for (const val of g.values) {
-        const active = state.activeFilters.feed === val;
-        pills.push(`<button type="button" class="jobs-pill${active ? ' jobs-pill--active' : ''}" data-filter="feed" data-value="${esc(val)}">${esc(val)}</button>`);
-      }
-    } else {
-      for (const val of g.values.slice(0, 12)) {
-        const active = state.activeFilters[g.key] === val;
-        pills.push(`<button type="button" class="jobs-pill${active ? ' jobs-pill--active' : ''}" data-filter="${g.key}" data-value="${esc(val)}">${esc(val)}</button>`);
-      }
-    }
-  }
-
-  els.jobsFilters.innerHTML = pills.join('');
-  els.jobsFilters.querySelectorAll('.jobs-pill').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const { filter, value } = btn.dataset;
-      if (filter === 'feed' && value === 'all') {
-        state.activeFilters = { feed: 'all' };
-      } else if (state.activeFilters[filter] === value) {
-        delete state.activeFilters[filter];
-        if (!state.activeFilters.feed) state.activeFilters.feed = 'all';
-      } else {
-        state.activeFilters[filter] = value;
-        if (filter !== 'feed') state.activeFilters.feed = state.activeFilters.feed || 'all';
-      }
-      state.page = 1;
-      renderJobsPage();
-      onInteraction();
-    });
-  });
-}
-
 function renderJobCard(job) {
   const selected = state.selected.has(job.id);
-  const title = esc(job.displayTitle || job.title);
+  const title = esc(job.title || job.displayTitle);
   const employer = esc(job.employer);
   const posted = formatJobDate(job.pubDate);
   const expires = formatJobDate(job.expiresAt);
   const summary = esc(job.summary || '');
-  const url = esc(job.applicationUrl);
 
   return `
     <article class="job-card${selected ? ' job-card--selected' : ''}" data-job-id="${esc(job.id)}">
       <div class="job-card__accent" aria-hidden="true"></div>
       ${selected ? '<div class="job-card__check" aria-hidden="true">✓</div>' : ''}
-      <button type="button" class="job-card__select-area" aria-pressed="${selected}" aria-label="${selected ? 'Remove from my list' : 'Add to my list'}: ${title}">
-        <h3 class="job-card__title">${title}</h3>
-        ${employer ? `<p class="job-card__employer">${employer}</p>` : ''}
+      <div class="job-card__body">
+        <div class="job-card__header">
+          ${avatarHtml(job.employer)}
+          <div class="job-card__headings">
+            <h3 class="job-card__title">${title}</h3>
+            ${employer ? `<p class="job-card__employer">${employer}</p>` : ''}
+          </div>
+        </div>
         <p class="job-card__date">Posted ${posted || '—'}</p>
         <p class="job-card__expires">Expires ${expires || '—'}</p>
         <p class="job-card__summary">${summary}</p>
-      </button>
+      </div>
       <div class="job-card__actions">
         <button type="button" class="job-card__list-btn${selected ? ' job-card__list-btn--added' : ''}" data-action="toggle" data-id="${esc(job.id)}">
           ${selected ? 'Added to My List' : 'Add to My List'}
         </button>
-        <a class="job-card__apply-btn" href="${url}" target="_blank" rel="noopener noreferrer" data-action="apply">
-          View More and Apply
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
-        </a>
+        <button type="button" class="job-card__more-btn" data-action="detail" data-id="${esc(job.id)}">View More</button>
       </div>
     </article>`;
 }
@@ -283,10 +204,80 @@ function esc(str) {
     .replace(/"/g, '&quot;');
 }
 
+function formatDescriptionText(text) {
+  return esc(text).replace(/\n/g, '<br>');
+}
+
+function metaRow(label, value) {
+  if (!value) return '';
+  return `<div class="jobs-detail__meta-row"><span class="jobs-detail__meta-label">${esc(label)}</span><span class="jobs-detail__meta-value">${esc(value)}</span></div>`;
+}
+
+function openJobDetail(jobId) {
+  const job = getJobById(jobId);
+  if (!job || !els.jobsDetailOverlay) return;
+  state.detailJobId = jobId;
+  const selected = state.selected.has(job.id);
+  const description = formatDescriptionText(job.descriptionText || job.summary || '');
+
+  els.jobsDetailOverlay.classList.remove('is-hidden');
+  els.jobsDetailOverlay.setAttribute('aria-hidden', 'false');
+
+  if (els.jobsDetailPanel) {
+    els.jobsDetailPanel.innerHTML = `
+      <div class="jobs-detail__accent" aria-hidden="true"></div>
+      <div class="jobs-detail__scroll">
+        <div class="jobs-detail__header">
+          ${avatarHtml(job.employer, 'lg')}
+          <div class="jobs-detail__headings">
+            <h2 class="jobs-detail__title" id="jobs-detail-title">${esc(job.title || job.displayTitle)}</h2>
+            ${job.employer ? `<p class="jobs-detail__employer">${esc(job.employer)}</p>` : ''}
+          </div>
+        </div>
+        <div class="jobs-detail__dates">
+          <p class="jobs-detail__posted">Posted ${formatJobDate(job.pubDate) || '—'}</p>
+          <p class="jobs-detail__expires">Expires ${formatJobDate(job.expiresAt) || '—'}</p>
+        </div>
+        <div class="jobs-detail__meta">
+          ${metaRow('Pay range', job.payRange)}
+          ${metaRow('Schedule', job.schedule)}
+          ${metaRow('Job type', job.jobType)}
+          ${metaRow('Location', job.location)}
+        </div>
+        <div class="jobs-detail__description">${description || '<p class="jobs-detail__empty-desc">No description available.</p>'}</div>
+      </div>
+      <div class="jobs-detail__footer">
+        <button type="button" class="job-card__list-btn${selected ? ' job-card__list-btn--added' : ''}" data-detail-toggle="${esc(job.id)}">
+          ${selected ? 'Added to My List' : 'Add to My List'}
+        </button>
+        <button type="button" class="jobs-detail__back-btn" id="jobs-detail-back">Back to Jobs</button>
+      </div>`;
+
+    els.jobsDetailPanel.querySelector('[data-detail-toggle]')?.addEventListener('click', () => {
+      toggleJob(job.id);
+      openJobDetail(job.id);
+    });
+    els.jobsDetailPanel.querySelector('#jobs-detail-back')?.addEventListener('click', closeJobDetail);
+  }
+
+  els.jobsDetailClose?.focus();
+  onInteraction();
+}
+
+function closeJobDetail() {
+  state.detailJobId = null;
+  if (els.jobsDetailOverlay) {
+    els.jobsDetailOverlay.classList.add('is-hidden');
+    els.jobsDetailOverlay.setAttribute('aria-hidden', 'true');
+  }
+}
+
 function renderJobsPage() {
   if (!els.jobsGrid) return;
 
-  renderFilterPills();
+  if (state.detailJobId && !getJobById(state.detailJobId)) {
+    closeJobDetail();
+  }
 
   if (!state.allJobs.length) {
     els.jobsGrid.innerHTML = '';
@@ -313,7 +304,7 @@ function renderJobsPage() {
     els.jobsGrid.innerHTML = '';
     if (els.jobsNoResults) {
       els.jobsNoResults.classList.remove('is-hidden');
-      els.jobsNoResults.textContent = 'No jobs match your search. Try adjusting your filters or searching for another keyword.';
+      els.jobsNoResults.textContent = 'No jobs match your search. Try another keyword.';
     }
   } else {
     if (els.jobsNoResults) els.jobsNoResults.classList.add('is-hidden');
@@ -326,20 +317,20 @@ function renderJobsPage() {
       });
     });
 
-    els.jobsGrid.querySelectorAll('.job-card__select-area').forEach((area) => {
-      area.addEventListener('click', () => {
-        const card = area.closest('.job-card');
-        if (card) toggleJob(card.dataset.jobId);
+    els.jobsGrid.querySelectorAll('[data-action="detail"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openJobDetail(btn.dataset.id);
       });
-    });
-
-    els.jobsGrid.querySelectorAll('[data-action="apply"]').forEach((link) => {
-      link.addEventListener('click', (e) => e.stopPropagation());
     });
   }
 
   if (els.jobsSummary) {
     els.jobsSummary.innerHTML = `<span class="jobs-count">${filtered.length} job${filtered.length === 1 ? '' : 's'} found</span> · Page ${state.page} of ${totalPages}`;
+  }
+
+  if (state.detailJobId) {
+    openJobDetail(state.detailJobId);
   }
 
   renderCart();
@@ -367,7 +358,7 @@ function renderCart() {
       ? selectedJobs.map((j) => `
           <div class="jobs-cart-item">
             <div class="jobs-cart-item__info">
-              <div class="jobs-cart-item__title">${esc(j.displayTitle || j.title)}</div>
+              <div class="jobs-cart-item__title">${esc(j.title || j.displayTitle)}</div>
               ${j.employer ? `<div class="jobs-cart-item__sub">${esc(j.employer)}</div>` : ''}
             </div>
             <button type="button" class="jobs-cart-item__remove" data-remove="${esc(j.id)}" aria-label="Remove">×</button>
@@ -459,10 +450,13 @@ export function getJobsPageElements() {
     jobsSearchInput: document.getElementById('jobs-search-input'),
     jobsSortSelect: document.getElementById('jobs-sort-select'),
     jobsSummary: document.getElementById('jobs-summary'),
-    jobsFilters: document.getElementById('jobs-filters'),
     jobsGrid: document.getElementById('jobs-grid'),
     jobsEmpty: document.getElementById('jobs-empty'),
     jobsNoResults: document.getElementById('jobs-no-results'),
+    jobsDetailOverlay: document.getElementById('jobs-detail-overlay'),
+    jobsDetailPanel: document.getElementById('jobs-detail-panel'),
+    jobsDetailClose: document.getElementById('jobs-detail-close'),
+    jobsDetailBackdrop: document.getElementById('jobs-detail-overlay'),
     jobsCartBar: document.getElementById('jobs-cart-bar'),
     jobsCartCount: document.getElementById('jobs-cart-count'),
     jobsCartToggle: document.getElementById('jobs-cart-review'),

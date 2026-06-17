@@ -5,7 +5,7 @@ import {
   normalizeRssChannel,
   emptyJobsData,
   channelFromFastXml,
-} from '../src/shared/jobs-parser.js';
+} from '../../src/shared/jobs-parser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');

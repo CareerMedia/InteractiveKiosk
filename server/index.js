@@ -15,7 +15,9 @@ import {
 import {
   buildJobListEmail,
   sendViaBrevo,
+  sendTestEmail,
   isValidEmail,
+  safeErrorMessage,
 } from './lib/email.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -123,7 +125,26 @@ app.post('/api/jobs/send-list', async (req, res) => {
     res.json({ success: true, sent: selected.length });
   } catch (err) {
     console.error('Email send error:', err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(err) });
+  }
+});
+
+app.post('/api/admin/jobs/test-email', adminOnly, async (req, res) => {
+  const { testEmail, testName } = req.body || {};
+
+  if (!isValidEmail(testEmail)) {
+    return res.status(400).json({ success: false, error: 'A valid test email address is required.' });
+  }
+
+  try {
+    await sendTestEmail({
+      testEmail: testEmail.trim(),
+      testName: testName?.trim() || '',
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Test email error:', err);
+    res.status(500).json({ success: false, error: safeErrorMessage(err) });
   }
 });
 

@@ -328,6 +328,22 @@ export function formatJobDate(isoOrDate) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+const INITIAL_SKIP_WORDS = new Set(['of', 'for', 'and', 'the', 'at', 'a', 'an', 'in', 'on']);
+
+export function getEmployerInitials(employerName) {
+  const raw = String(employerName || '').trim();
+  if (!raw) return '??';
+  const words = raw.split(/\s+/).filter((w) => w && !INITIAL_SKIP_WORDS.has(w.toLowerCase()));
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  if (words.length === 1) {
+    const w = words[0].replace(/[^a-zA-Z0-9]/g, '');
+    return (w.slice(0, 2) || '??').toUpperCase();
+  }
+  return '??';
+}
+
 export function parseRssXmlInBrowser(xmlText) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlText, 'text/xml');

@@ -865,6 +865,44 @@ function wireJobsTab() {
       jobsClearBtn.textContent = prev;
     }
   });
+
+  const jobsEmailTestForm = $('jobs-email-test-form');
+  const jobsEmailTestToast = $('jobs-email-test-toast');
+
+  jobsEmailTestForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const testEmail = $('jobs-test-email')?.value?.trim();
+    const testName = $('jobs-test-name')?.value?.trim() || '';
+    if (!testEmail) {
+      toast(jobsEmailTestToast, 'Enter a test email address.', 'error');
+      return;
+    }
+
+    const btn = $('jobs-test-send-btn');
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Sending…';
+    jobsEmailTestToast.classList.add('is-hidden');
+
+    try {
+      if (!(await apiAvailable())) {
+        throw new Error('API server is not reachable. Run npm start and open admin through the server URL.');
+      }
+      const res = await fetch('/api/admin/jobs/test-email', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ testEmail, testName }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Test email failed.');
+      toast(jobsEmailTestToast, `Test email sent to ${testEmail}.`, 'success', 5000);
+    } catch (err) {
+      toast(jobsEmailTestToast, err.message, 'error', 8000);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  });
 }
 
 // ─── Dashboard init ─────────────────────────────────────
