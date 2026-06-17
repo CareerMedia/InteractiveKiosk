@@ -5,10 +5,11 @@ import { POPUP_CONFIG } from './config/popup.js';
 import { TIMING_CONFIG } from './config/timing.js';
 import { URL_CONFIG } from './config/urls.js';
 import { loadConfig } from './shared/config.js';
+import { initJobsPage, loadJobsPage, getJobsPageElements } from './jobs-page.js';
 
 // ─── STATE ────────────────────────────────────────────────
 const state = {
-  activeView: 'home',    // 'home' | 'map' | 'website' | 'info' | 'partners'
+  activeView: 'home',    // 'home' | 'map' | 'website' | 'info' | 'partners' | 'jobs'
   inactivityTimer: null,
   countdownTimer: null,
   popupTimer: null,
@@ -44,6 +45,7 @@ const els = {
   viewMap:            document.getElementById('view-map'),
   viewWebsite:        document.getElementById('view-website'),
   viewInfo:           document.getElementById('view-info'),
+  viewJobs:           document.getElementById('view-jobs'),
   viewPartners:       document.getElementById('view-partners'),
 
   // Map
@@ -112,6 +114,7 @@ const VIEWS = {
   map:      { el: els.viewMap },
   website:  { el: els.viewWebsite },
   info:     { el: els.viewInfo },
+  jobs:     { el: els.viewJobs },
   partners: { el: els.viewPartners },
 };
 
@@ -974,6 +977,7 @@ function setView(viewId) {
   if (viewId === 'website') ensureWebsiteLoaded();
   if (viewId === 'partners') ensurePartnersLoaded();
   if (viewId === 'info') loadEvents();
+  if (viewId === 'jobs') loadJobsPage();
 
   // Inactivity + popup scheduling
   if (viewId === 'home') {
@@ -1179,6 +1183,9 @@ async function loadRuntimeConfig() {
 // ─── INIT ────────────────────────────────────────────────
 async function init() {
   applyCopy();
+  initJobsPage(getJobsPageElements(), () => {
+    if (state.activeView !== 'home') resetInactivityTimer();
+  });
   bindEvents();
   await loadRuntimeConfig();
   loadLogos();

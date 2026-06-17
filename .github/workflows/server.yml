@@ -1,0 +1,55 @@
+name: Server
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  install-and-start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Start server and smoke test
+        env:
+          PORT: 3000
+          ADMIN_PASSWORD: career1
+          # Brevo is only needed for email; use placeholders for CI.
+          BREVO_API_KEY: ci-placeholder
+          BREVO_SENDER_EMAIL: ci@example.com
+          BREVO_SENDER_NAME: CSUN Career Center
+        run: |
+          npm start &
+          SERVER_PID=$!
+          echo "Server PID: $SERVER_PID"
+
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/jobs > /dev/null; then
+              echo "Server is up — GET /api/jobs returned 200"
+              curl -s http://localhost:3000/api/jobs | head -c 200
+              echo ""
+              kill "$SERVER_PID" 2>/dev/null || true
+              wait "$SERVER_PID" 2>/dev/null || true
+              exit 0
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 1
+          done
+
+          echo "Server did not become ready in time"
+          kill "$SERVER_PID" 2>/dev/null || true
+          exit 1

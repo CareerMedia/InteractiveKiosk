@@ -16,11 +16,20 @@ import {
   listDir, getJsonFile, putJsonFile, deleteFile, deleteFilesAtomically,
   uploadFiles, rawUrl,
 } from '../src/shared/github.js';
+import {
+  normalizeRssChannel,
+  emptyJobsData,
+  parseRssXmlInBrowser,
+  formatJobDate,
+} from '../src/shared/jobs-parser.js';
+import { URL_CONFIG } from '../src/config/urls.js';
 
 // ─── Config ─────────────────────────────────────────────
 const ADMIN_PASSWORD = 'career1';
 const AUTH_KEY       = 'csun-kiosk-admin-auth';
 const CONFIG_PATH    = 'config.json';
+const JOBS_PATH      = 'data/jobs.json';
+const JOBS_CONFIG_PATH = 'data/jobs-config.json';
 const PARTNERS_DIR   = 'assets/employers/partners';
 const ATTENDEES_DIR  = 'assets/employers/attendees';
 
@@ -102,6 +111,8 @@ const confirmCancel   = $('confirm-cancel');
 // ─── Admin connection state ─────────────────────────────
 let conn = null; // { owner, repo, branch, token }
 let configState = { data: null, sha: null };
+let jobsState = { data: null, sha: null };
+let jobsConfigState = { data: null, sha: null };
 
 // ─── Auth ───────────────────────────────────────────────
 const isAuthed = () => sessionStorage.getItem(AUTH_KEY) === '1';
@@ -549,14 +560,323 @@ async function handleUpload(section, files) {
   }
 }
 
+// ─── Job Opportunities tab ──────────────────────────────
+const jobsFeedUrl     = $('jobs-feed-url');
+const jobsFeedHint    = $('jobs-feed-hint');
+const jobsConfigForm  = $('jobs-config-form');
+const jobsSyncBtn     = $('jobs-sync-btn');
+const jobsClearBtn    = $('jobs-clear-btn');
+const jobsToast       = $('jobs-toast');
+const jobsTotalCount  = $('jobs-total-count');
+const jobsFeedTitle   = $('jobs-feed-title');
+const jobsLastSynced  = $('jobs-last-synced');
+const jobsPreviewBody = $('jobs-preview-body');
+
+function adminHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'X-Admin-Password': ADMIN_PASSWORD,
+  };
+}
+
+async function apiAvailable() {
+  try {
+    const res = await fetch('/api/admin/jobs/config', { headers: adminHeaders() });
+    return res.ok || res.status === 401;
+  } catch {
+    return false;
+  }
+}
+
+async function loadJobsFromRepo() {
+  const [jobsFile, configFile] = await Promise.all([
+    getJsonFile(conn, JOBS_PATH),
+    getJsonFile(conn, JOBS_CONFIG_PATH),
+  ]);
+  jobsState = { data: jobsFile.data || emptyJobsData(), sha: jobsFile.sha };
+  jobsConfigState = { data: configFile.data || { feedUrl: '', updatedAt: null }, sha: configFile.sha };
+  return jobsState;
+}
+
+async function commitJobs(data, message) {
+  const result = await putJsonFile(conn, {
+    path: JOBS_PATH,
+    data,
+    message,
+    sha: jobsState.sha,
+  });
+  jobsState = { data, sha: result.content?.sha || null };
+  return data;
+}
+
+async function commitJobsConfig(config, message) {
+  const result = await putJsonFile(conn, {
+    path: JOBS_CONFIG_PATH,
+    data: config,
+    message,
+    sha: jobsConfigState.sha,
+  });
+  jobsConfigState = { data: config, sha: result.content?.sha || null };
+}
+
+function renderJobsPreview() {
+  const data = jobsState.data || emptyJobsData();
+  const jobs = data.jobs || [];
+  const meta = data.meta || {};
+
+  jobsTotalCount.textContent = String(meta.totalJobs ?? jobs.length);
+  jobsFeedTitle.textContent = meta.feedTitle || '—';
+  jobsLastSynced.textContent = meta.lastSyncedAt
+    ? new Date(meta.lastSyncedAt).toLocaleString()
+    : '—';
+
+  if (!jobs.length) {
+    jobsPreviewBody.innerHTML = '<tr><td colspan="5" class="jobs-admin-empty">No jobs synced yet.</td></tr>';
+    return;
+  }
+
+  jobsPreviewBody.innerHTML = jobs.slice(0, 100).map((j) => `
+    <tr>
+      <td>${escHtml(j.displayTitle || j.title)}</td>
+      <td>${escHtml(j.employer || '—')}</td>
+      <td>${escHtml(formatJobDate(j.expiresAt) || '—')}</td>
+      <td>${escHtml(formatJobDate(j.pubDate) || '—')}</td>
+      <td>${j.applicationUrl ? `<a href="${escHtml(j.applicationUrl)}" target="_blank" rel="noopener">View</a>` : '—'}</td>
+    </tr>`).join('');
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function loadJobsTab() {
+  try {
+    await loadJobsFromRepo();
+    const feedUrl = jobsConfigState.data?.feedUrl || jobsState.data?.meta?.feedUrl || '';
+    jobsFeedUrl.value = feedUrl;
+    jobsFeedHint.textContent = jobsState.sha
+      ? `Jobs data in ${conn.owner}/${conn.repo}/${JOBS_PATH}`
+      : `${JOBS_PATH} will be created on first sync.`;
+    renderJobsPreview();
+  } catch (err) {
+    toast(jobsToast, `Could not read jobs data: ${err.message}`, 'error', 6000);
+  }
+}
+
+async function saveFeedUrl(feedUrl) {
+  const config = { feedUrl, updatedAt: new Date().toISOString() };
+  if (await apiAvailable()) {
+    const res = await fetch('/api/admin/jobs/config', {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ feedUrl }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Failed to save feed URL');
+  }
+  await commitJobsConfig(config, 'admin: save Handshake RSS feed URL');
+  const jobs = jobsState.data || emptyJobsData();
+  if (jobs.meta) jobs.meta.feedUrl = feedUrl;
+  await commitJobs(jobs, 'admin: update jobs feed URL in meta');
+}
+
+async function fetchRssViaProxy(feedUrl) {
+  let lastErr;
+  for (const proxyFn of URL_CONFIG.corsProxies) {
+    try {
+      const proxyUrl = proxyFn(feedUrl);
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(45000) });
+      if (!res.ok) throw new Error(`Proxy returned ${res.status}`);
+      const text = await res.text();
+      if (text.trim()) return text;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw new Error(lastErr?.message || 'Could not fetch RSS feed through proxy.');
+}
+
+async function syncJobsGitHub(feedUrl) {
+  const xmlText = await fetchRssViaProxy(feedUrl);
+  const channel = parseRssXmlInBrowser(xmlText);
+  const data = normalizeRssChannel(channel, feedUrl);
+  if (!data.jobs.length) {
+    data.warnings = ['No job items were found in the feed.'];
+  }
+  await commitJobsConfig({ feedUrl, updatedAt: new Date().toISOString() }, 'admin: sync jobs config');
+  await commitJobs(data, `admin: sync ${data.jobs.length} job(s) from Handshake RSS`);
+  await commitConfig({ bumpVersion: true, message: 'admin: bump kiosk cache version after jobs sync' });
+  return data;
+}
+
+async function syncJobs(feedUrl) {
+  if (await apiAvailable()) {
+    const res = await fetch('/api/admin/jobs/sync', {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify({ feedUrl }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Sync failed');
+
+    // Pull synced data from server and commit to GitHub for static kiosk deployment
+    const jobsRes = await fetch('/api/jobs', { cache: 'no-store' });
+    if (jobsRes.ok) {
+      const jobsData = await jobsRes.json();
+      const fullData = {
+        meta: {
+          sourceType: 'handshake-rss',
+          feedUrl,
+          feedTitle: body.feedTitle || jobsData.meta?.feedTitle || '',
+          feedDescription: jobsData.meta?.feedDescription || '',
+          channelLink: jobsData.meta?.channelLink || '',
+          lastSyncedAt: body.lastSyncedAt || jobsData.meta?.lastSyncedAt || new Date().toISOString(),
+          clearedAt: '',
+          totalJobs: body.totalJobs ?? jobsData.jobs?.length ?? 0,
+        },
+        jobs: jobsData.jobs || [],
+      };
+      await commitJobsConfig({ feedUrl, updatedAt: new Date().toISOString() }, 'admin: sync jobs config');
+      await commitJobs(fullData, `admin: sync ${fullData.meta.totalJobs} job(s) from Handshake RSS`);
+    }
+
+    if (body.totalJobs > 0) {
+      await commitConfig({ bumpVersion: true, message: 'admin: bump kiosk cache version after jobs sync' });
+    }
+    return body;
+  }
+  return syncJobsGitHub(feedUrl);
+}
+
+async function clearJobsData() {
+  let cleared;
+  if (await apiAvailable()) {
+    const res = await fetch('/api/admin/jobs/clear', {
+      method: 'POST',
+      headers: adminHeaders(),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Clear failed');
+    cleared = emptyJobsData({
+      feedUrl: jobsConfigState.data?.feedUrl || jobsState.data?.meta?.feedUrl || '',
+      feedTitle: jobsState.data?.meta?.feedTitle || '',
+      feedDescription: jobsState.data?.meta?.feedDescription || '',
+      channelLink: jobsState.data?.meta?.channelLink || '',
+      lastSyncedAt: jobsState.data?.meta?.lastSyncedAt || '',
+    });
+  } else {
+    cleared = emptyJobsData({
+      feedUrl: jobsConfigState.data?.feedUrl || jobsState.data?.meta?.feedUrl || '',
+      feedTitle: jobsState.data?.meta?.feedTitle || '',
+      feedDescription: jobsState.data?.meta?.feedDescription || '',
+      channelLink: jobsState.data?.meta?.channelLink || '',
+      lastSyncedAt: jobsState.data?.meta?.lastSyncedAt || '',
+    });
+  }
+  await commitJobs(cleared, 'admin: clear job opportunities');
+  await commitConfig({ bumpVersion: true, message: 'admin: bump kiosk cache version after jobs clear' });
+  return cleared;
+}
+
+function wireJobsTab() {
+  if (!jobsConfigForm) return;
+
+  jobsConfigForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const feedUrl = jobsFeedUrl.value.trim();
+    if (!feedUrl) {
+      toast(jobsToast, 'Enter an RSS feed URL first.', 'error');
+      return;
+    }
+    try { new URL(feedUrl); } catch {
+      toast(jobsToast, 'That doesn\u2019t look like a valid URL.', 'error');
+      return;
+    }
+    const btn = $('jobs-save-url-btn');
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Saving…';
+    try {
+      await saveFeedUrl(feedUrl);
+      toast(jobsToast, 'Feed URL saved.', 'success');
+      renderJobsPreview();
+    } catch (err) {
+      toast(jobsToast, err.message, 'error', 6000);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  });
+
+  jobsSyncBtn?.addEventListener('click', async () => {
+    const feedUrl = jobsFeedUrl.value.trim()
+      || jobsConfigState.data?.feedUrl
+      || jobsState.data?.meta?.feedUrl;
+    if (!feedUrl) {
+      toast(jobsToast, 'Save an RSS feed URL before syncing.', 'error');
+      return;
+    }
+    jobsSyncBtn.disabled = true;
+    const prev = jobsSyncBtn.textContent;
+    jobsSyncBtn.textContent = 'Syncing…';
+    try {
+      const result = await syncJobs(feedUrl);
+      const total = result.totalJobs ?? jobsState.data?.jobs?.length ?? 0;
+      const warnings = result.errors || result.warnings || [];
+      toast(
+        jobsToast,
+        warnings.length
+          ? `Synced ${total} job(s) with warnings: ${warnings.join(' ')}`
+          : `Synced ${total} job(s) successfully.`,
+        warnings.length ? 'info' : 'success',
+        5000,
+      );
+      await loadJobsTab();
+    } catch (err) {
+      toast(jobsToast, `Sync failed: ${err.message}`, 'error', 8000);
+    } finally {
+      jobsSyncBtn.disabled = false;
+      jobsSyncBtn.textContent = prev;
+    }
+  });
+
+  jobsClearBtn?.addEventListener('click', async () => {
+    const ok = await askConfirm({
+      title: 'Clear all job opportunities?',
+      body: 'This empties the jobs list for students after the career fair. The saved RSS feed URL will be kept.',
+      confirmLabel: 'Clear jobs',
+    });
+    if (!ok) return;
+    jobsClearBtn.disabled = true;
+    const prev = jobsClearBtn.textContent;
+    jobsClearBtn.textContent = 'Clearing…';
+    try {
+      await clearJobsData();
+      toast(jobsToast, 'Job opportunities cleared.', 'success');
+      await loadJobsTab();
+    } catch (err) {
+      toast(jobsToast, `Clear failed: ${err.message}`, 'error', 6000);
+    } finally {
+      jobsClearBtn.disabled = false;
+      jobsClearBtn.textContent = prev;
+    }
+  });
+}
+
 // ─── Dashboard init ─────────────────────────────────────
 async function initDashboard() {
   wireSection(sections.partners);
   wireSection(sections.attendees);
+  wireJobsTab();
   await loadMapTab();
   await Promise.all([
     renderSection(sections.partners),
     renderSection(sections.attendees),
+    loadJobsTab(),
   ]);
 }
 

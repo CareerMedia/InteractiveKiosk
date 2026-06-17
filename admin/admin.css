@@ -697,6 +697,68 @@ label.btn { cursor: pointer; }
   gap: 8px;
 }
 
+/* Job Opportunities admin */
+.jobs-admin-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+.stat-chip {
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  min-width: 140px;
+}
+.stat-chip__label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--a-muted);
+  margin-bottom: 4px;
+}
+.stat-chip__value {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--a-ink);
+  word-break: break-word;
+}
+.jobs-admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  background: var(--a-surface);
+}
+.jobs-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.jobs-admin-table th {
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--a-bg);
+  border-bottom: 1px solid var(--a-border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--a-muted);
+}
+.jobs-admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--a-border);
+  vertical-align: top;
+}
+.jobs-admin-table tr:last-child td { border-bottom: none; }
+.jobs-admin-table a { color: var(--a-red); text-decoration: underline; }
+.jobs-admin-empty {
+  text-align: center;
+  color: var(--a-muted);
+  padding: 24px !important;
+}
+
 /* ════════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════════ */

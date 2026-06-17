@@ -112,6 +112,7 @@
         <button class="dash-tab is-active" data-tab="map"       role="tab">Map</button>
         <button class="dash-tab"           data-tab="partners"  role="tab">Employer Partners</button>
         <button class="dash-tab"           data-tab="attendees" role="tab">Participating Employers</button>
+        <button class="dash-tab"           data-tab="jobs"      role="tab">Job Opportunities</button>
       </nav>
 
       <main class="dash-main">
@@ -224,6 +225,60 @@
 
           <div class="logo-grid" id="attendees-grid"></div>
           <div class="empty-state is-hidden" id="attendees-empty">No participating employer logos yet. Drop images above to add them.</div>
+        </section>
+
+        <!-- ─── JOB OPPORTUNITIES TAB ─── -->
+        <section class="dash-panel" data-panel="jobs">
+          <div class="panel-head">
+            <h2 class="panel-title">Job Opportunities</h2>
+            <p class="panel-sub">
+              Sync jobs from a Handshake RSS feed. Parsed jobs are saved to
+              <code>data/jobs.json</code> in the repo so every kiosk can display them.
+              When the API server is running, sync uses server-side fetching to avoid CORS issues.
+            </p>
+          </div>
+
+          <form id="jobs-config-form" class="map-form" autocomplete="off">
+            <label class="field">
+              <span class="field__label">Handshake RSS feed URL</span>
+              <input
+                type="url"
+                id="jobs-feed-url"
+                class="field__input"
+                placeholder="https://csun.joinhandshake.com/external_feeds/…/public.rss?token=…"
+              />
+              <span class="field__hint" id="jobs-feed-hint">Paste the public RSS feed URL from Handshake.</span>
+            </label>
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="jobs-save-url-btn">Save feed URL</button>
+              <button class="btn btn--primary" type="button" id="jobs-sync-btn">Sync Jobs from Handshake</button>
+              <button class="btn btn--danger"  type="button" id="jobs-clear-btn">Clear Job Opportunities</button>
+            </div>
+            <div class="inline-toast is-hidden" id="jobs-toast"></div>
+          </form>
+
+          <div class="jobs-admin-stats" id="jobs-admin-stats">
+            <div class="stat-chip"><span class="stat-chip__label">Total synced</span><span class="stat-chip__value" id="jobs-total-count">0</span></div>
+            <div class="stat-chip"><span class="stat-chip__label">Feed title</span><span class="stat-chip__value" id="jobs-feed-title">—</span></div>
+            <div class="stat-chip"><span class="stat-chip__label">Last synced</span><span class="stat-chip__value" id="jobs-last-synced">—</span></div>
+          </div>
+
+          <div class="jobs-admin-table-wrap">
+            <table class="jobs-admin-table" id="jobs-preview-table">
+              <thead>
+                <tr>
+                  <th>Job title</th>
+                  <th>Employer</th>
+                  <th>Expiration</th>
+                  <th>Published</th>
+                  <th>Link</th>
+                </tr>
+              </thead>
+              <tbody id="jobs-preview-body">
+                <tr><td colspan="5" class="jobs-admin-empty">No jobs synced yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
       </main>
