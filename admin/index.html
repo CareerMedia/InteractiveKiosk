@@ -240,6 +240,22 @@
 
           <form id="jobs-config-form" class="map-form" autocomplete="off">
             <label class="field">
+              <span class="field__label">API server URL (for email &amp; sync on GitHub Pages)</span>
+              <input
+                type="url"
+                id="jobs-api-url"
+                class="field__input"
+                placeholder="https://interactive-kiosk.vercel.app"
+              />
+              <span class="field__hint" id="jobs-api-hint">
+                GitHub Pages cannot run Node. Deploy the API on Vercel (see <code>vercel.json</code>), then paste your Vercel project URL here.
+              </span>
+            </label>
+            <div class="panel-actions">
+              <button class="btn btn--ghost" type="button" id="jobs-api-save-btn">Save API URL</button>
+            </div>
+
+            <label class="field">
               <span class="field__label">Handshake RSS feed URL</span>
               <input
                 type="url"

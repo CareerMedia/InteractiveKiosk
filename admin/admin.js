@@ -23,6 +23,7 @@ import {
   formatJobDate,
 } from '../src/shared/jobs-parser.js';
 import { URL_CONFIG } from '../src/config/urls.js';
+import { apiUrl, isApiAvailable, invalidateApiBaseCache } from '../src/shared/api-base.js';
 
 // ─── Config ─────────────────────────────────────────────
 const ADMIN_PASSWORD = 'career1';
@@ -267,11 +268,12 @@ async function loadConfigFromRepo() {
   return configState;
 }
 
-async function commitConfig({ mapUrl, bumpVersion = true, message }) {
+async function commitConfig({ mapUrl, apiBaseUrl, bumpVersion = true, message }) {
   const current = configState.data || {};
   const next = {
     ...current,
     mapUrl: mapUrl ?? current.mapUrl ?? MAP_CONFIG.embedUrl,
+    apiBaseUrl: apiBaseUrl !== undefined ? String(apiBaseUrl || '').trim() : (current.apiBaseUrl || ''),
     version: bumpVersion ? Number(current.version || 0) + 1 : Number(current.version || 0),
     updatedAt: new Date().toISOString(),
   };
@@ -562,6 +564,9 @@ async function handleUpload(section, files) {
 
 // ─── Job Opportunities tab ──────────────────────────────
 const jobsFeedUrl     = $('jobs-feed-url');
+const jobsApiUrlInput = $('jobs-api-url');
+const jobsApiSaveBtn  = $('jobs-api-save-btn');
+const jobsApiHint     = $('jobs-api-hint');
 const jobsFeedHint    = $('jobs-feed-hint');
 const jobsConfigForm  = $('jobs-config-form');
 const jobsSyncBtn     = $('jobs-sync-btn');
@@ -580,12 +585,7 @@ function adminHeaders() {
 }
 
 async function apiAvailable() {
-  try {
-    const res = await fetch('/api/admin/jobs/config', { headers: adminHeaders() });
-    return res.ok || res.status === 401;
-  } catch {
-    return false;
-  }
+  return isApiAvailable({ force: true });
 }
 
 async function loadJobsFromRepo() {
@@ -655,9 +655,16 @@ function escHtml(str) {
 
 async function loadJobsTab() {
   try {
+    await loadConfigFromRepo();
     await loadJobsFromRepo();
     const feedUrl = jobsConfigState.data?.feedUrl || jobsState.data?.meta?.feedUrl || '';
     jobsFeedUrl.value = feedUrl;
+    if (jobsApiUrlInput) {
+      jobsApiUrlInput.value = configState.data?.apiBaseUrl || '';
+      jobsApiHint.textContent = configState.data?.apiBaseUrl
+        ? `API URL in config.json — kiosk on GitHub Pages will call this server for email.`
+        : `GitHub Pages cannot run Node. Deploy API on Vercel (vercel.json), then paste your Vercel URL here.`;
+    }
     jobsFeedHint.textContent = jobsState.sha
       ? `Jobs data in ${conn.owner}/${conn.repo}/${JOBS_PATH}`
       : `${JOBS_PATH} will be created on first sync.`;
@@ -670,7 +677,7 @@ async function loadJobsTab() {
 async function saveFeedUrl(feedUrl) {
   const config = { feedUrl, updatedAt: new Date().toISOString() };
   if (await apiAvailable()) {
-    const res = await fetch('/api/admin/jobs/config', {
+    const res = await fetch(await apiUrl('/api/admin/jobs/config'), {
       method: 'POST',
       headers: adminHeaders(),
       body: JSON.stringify({ feedUrl }),
@@ -715,7 +722,7 @@ async function syncJobsGitHub(feedUrl) {
 
 async function syncJobs(feedUrl) {
   if (await apiAvailable()) {
-    const res = await fetch('/api/admin/jobs/sync', {
+    const res = await fetch(await apiUrl('/api/admin/jobs/sync'), {
       method: 'POST',
       headers: adminHeaders(),
       body: JSON.stringify({ feedUrl }),
@@ -724,7 +731,7 @@ async function syncJobs(feedUrl) {
     if (!res.ok) throw new Error(body.error || 'Sync failed');
 
     // Pull synced data from server and commit to GitHub for static kiosk deployment
-    const jobsRes = await fetch('/api/jobs', { cache: 'no-store' });
+    const jobsRes = await fetch(await apiUrl('/api/jobs'), { cache: 'no-store' });
     if (jobsRes.ok) {
       const jobsData = await jobsRes.json();
       const fullData = {
@@ -755,7 +762,7 @@ async function syncJobs(feedUrl) {
 async function clearJobsData() {
   let cleared;
   if (await apiAvailable()) {
-    const res = await fetch('/api/admin/jobs/clear', {
+    const res = await fetch(await apiUrl('/api/admin/jobs/clear'), {
       method: 'POST',
       headers: adminHeaders(),
     });
@@ -866,6 +873,35 @@ function wireJobsTab() {
     }
   });
 
+  jobsApiSaveBtn?.addEventListener('click', async () => {
+    const val = (jobsApiUrlInput?.value || '').trim().replace(/\/+$/, '');
+    if (val) {
+      try { new URL(val); } catch {
+        toast(jobsToast, 'That doesn\u2019t look like a valid API URL.', 'error');
+        return;
+      }
+    }
+    jobsApiSaveBtn.disabled = true;
+    const prev = jobsApiSaveBtn.textContent;
+    jobsApiSaveBtn.textContent = 'Saving…';
+    try {
+      await commitConfig({
+        apiBaseUrl: val,
+        message: val ? `admin: set API server URL to ${val}` : 'admin: clear API server URL',
+      });
+      invalidateApiBaseCache();
+      toast(jobsToast, val
+        ? 'API URL saved to config.json. Email and sync will use this server.'
+        : 'API URL cleared from config.json.', 'success', 5000);
+      await loadJobsTab();
+    } catch (err) {
+      toast(jobsToast, `Could not save API URL: ${err.message}`, 'error', 6000);
+    } finally {
+      jobsApiSaveBtn.disabled = false;
+      jobsApiSaveBtn.textContent = prev;
+    }
+  });
+
   const jobsEmailTestForm = $('jobs-email-test-form');
   const jobsEmailTestToast = $('jobs-email-test-toast');
 
@@ -886,18 +922,24 @@ function wireJobsTab() {
 
     try {
       if (!(await apiAvailable())) {
-        throw new Error('API server is not reachable. Run npm start and open admin through the server URL.');
+        throw new Error(
+          'API server is not reachable. Deploy the API on Vercel (see vercel.json in the repo), ' +
+          'then save your Vercel URL below as the API server URL in config.json.',
+        );
       }
-      const res = await fetch('/api/admin/jobs/test-email', {
+      const res = await fetch(await apiUrl('/api/admin/jobs/test-email'), {
         method: 'POST',
         headers: adminHeaders(),
         body: JSON.stringify({ testEmail, testName }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'Test email failed.');
-      toast(jobsEmailTestToast, `Test email sent to ${testEmail}.`, 'success', 5000);
+      toast(jobsEmailTestToast, 'Test email sent successfully. Brevo is connected.', 'success', 5000);
     } catch (err) {
-      toast(jobsEmailTestToast, err.message, 'error', 8000);
+      const msg = err.message?.includes('not reachable') || err.message?.includes('not configured')
+        ? err.message
+        : 'Test email could not be sent. Check the Brevo API key, sender email, and server logs.';
+      toast(jobsEmailTestToast, msg, 'error', 8000);
     } finally {
       btn.disabled = false;
       btn.textContent = prev;

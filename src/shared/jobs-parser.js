@@ -145,6 +145,40 @@ function truncateSummary(text, maxLen = 280) {
   return `${clean.slice(0, maxLen).replace(/\s+\S*$/, '')}…`;
 }
 
+export function truncateWords(value, maxWords = 20) {
+  const clean = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  const words = clean.split(' ').filter(Boolean);
+  if (words.length <= maxWords) return clean;
+  return `${words.slice(0, maxWords).join(' ')}...`;
+}
+
+function stripMetadataPrefixes(text) {
+  let out = String(text || '').trim();
+  out = out.replace(/^Employer:\s*.+?(?=(?:Expires:|Join |Position |About |$))/i, '');
+  out = out.replace(/\bExpires:\s*\d{1,2}\/\d{1,2}\/\d{4}\s*/gi, '');
+  out = out.replace(/\bLocation:\s*.+?(?=(?:Join |Position |Schedule:|Pay |$))/i, '');
+  out = out.replace(/\bJob\s*Type:\s*.+?(?=(?:Schedule:|Pay |Join |$))/i, '');
+  out = out.replace(/\bSchedule:\s*.+?(?=(?:Pay |Join |Qualifications:|$))/i, '');
+  out = out.replace(/\bPay\s*Range[^]+?(?=(?:Join |Schedule:|Qualifications:|$))/i, '');
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/** Short plain-text excerpt for job cards (~35–55 words). */
+export function jobCardExcerpt(job, maxWords = 50) {
+  let text = '';
+  if (job.summary?.trim()) text = stripHtmlCompact(job.summary);
+  else if (job.descriptionText?.trim()) text = stripHtmlCompact(job.descriptionText);
+  else if (job.description?.trim()) text = stripHtmlCompact(job.description);
+
+  text = stripMetadataPrefixes(text);
+  if (!text) return '';
+
+  const words = text.split(' ').filter(Boolean);
+  if (words.length <= maxWords) return text;
+  return `${words.slice(0, maxWords).join(' ')}...`;
+}
+
 export function normalizeRssItem(item, channelMeta = {}) {
   const rawTitle = decodeEntities(textVal(item.title));
   const rawDescription = textVal(item.description);

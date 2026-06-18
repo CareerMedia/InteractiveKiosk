@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Runtime jobs data loader (kiosk)
-// Reads from the API when a server is running, otherwise from data/jobs.json.
-// Never fetches Handshake RSS directly.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { apiUrl, isApiAvailable, resolveApiBase } from './api-base.js';
 
 export { formatJobDate } from './jobs-parser.js';
 
@@ -19,11 +19,12 @@ let _jobsPromise = null;
 export function loadJobs({ force = false } = {}) {
   if (_jobsPromise && !force) return _jobsPromise;
   _jobsPromise = (async () => {
-    try {
-      const apiRes = await fetch('/api/jobs', { cache: 'no-store' });
-      if (apiRes.ok) return apiRes.json();
-    } catch {
-      // API not available — fall back to static JSON (GitHub Pages)
+    const { available } = await resolveApiBase({ force });
+    if (available) {
+      try {
+        const res = await fetch(await apiUrl('/api/jobs'), { cache: 'no-store' });
+        if (res.ok) return res.json();
+      } catch { /* fall through */ }
     }
     try {
       const res = await fetch(jobsJsonUrl(), { cache: 'no-store' });
@@ -44,14 +45,30 @@ function emptyPayload() {
 }
 
 export async function sendJobListEmail({ studentName, studentEmail, jobs }) {
-  const res = await fetch('/api/jobs/send-list', {
+  const hasApi = await isApiAvailable({ force: true });
+  if (!hasApi) {
+    const err = new Error('EMAIL_API_UNAVAILABLE');
+    err.code = 'EMAIL_API_UNAVAILABLE';
+    throw err;
+  }
+
+  const res = await fetch(await apiUrl('/api/jobs/send-list'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ studentName, studentEmail, jobs }),
   });
-  const data = await res.json().catch(() => ({}));
+
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {
+    data = { error: 'EMAIL_SEND_FAILED' };
+  }
+
   if (!res.ok) {
-    throw new Error(data.error || 'Email request failed');
+    const err = new Error(data.error || 'EMAIL_SEND_FAILED');
+    err.code = data.error || 'EMAIL_SEND_FAILED';
+    throw err;
   }
   return data;
 }

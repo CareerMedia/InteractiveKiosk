@@ -3,9 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { loadJobs, sendJobListEmail } from './shared/jobs-loader.js';
-import { formatJobDate, getEmployerInitials } from './shared/jobs-parser.js';
+import { formatJobDate, getEmployerInitials, jobCardExcerpt, truncateWords } from './shared/jobs-parser.js';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 40;
 
 const state = {
   allJobs: [],
@@ -163,13 +163,30 @@ function showJobsSkeleton() {
   if (els.jobsSummary) els.jobsSummary.textContent = 'Loading jobs…';
 }
 
+function cardMetaHtml(job) {
+  const fields = [
+    ['Pay range', job.payRange],
+    ['Schedule', job.schedule],
+    ['Job type', job.jobType],
+    ['Location', job.location],
+  ].filter(([, value]) => String(value || '').trim());
+
+  if (!fields.length) return '';
+
+  return `<div class="job-card__meta">${fields.map(([label, value]) => `
+    <div class="job-card__meta-item">
+      <span class="job-card__meta-label">${esc(label)}</span>
+      <span class="job-card__meta-value">${esc(truncateWords(value, 20))}</span>
+    </div>`).join('')}</div>`;
+}
+
 function renderJobCard(job) {
   const selected = state.selected.has(job.id);
   const title = esc(job.title || job.displayTitle);
   const employer = esc(job.employer);
   const posted = formatJobDate(job.pubDate);
   const expires = formatJobDate(job.expiresAt);
-  const summary = esc(job.summary || '');
+  const excerpt = esc(jobCardExcerpt(job));
 
   return `
     <article class="job-card${selected ? ' job-card--selected' : ''}" data-job-id="${esc(job.id)}">
@@ -185,7 +202,8 @@ function renderJobCard(job) {
         </div>
         <p class="job-card__date">Posted ${posted || '—'}</p>
         <p class="job-card__expires">Expires ${expires || '—'}</p>
-        <p class="job-card__summary">${summary}</p>
+        ${excerpt ? `<p class="job-card__excerpt">${excerpt}</p>` : ''}
+        ${cardMetaHtml(job)}
       </div>
       <div class="job-card__actions">
         <button type="button" class="job-card__list-btn${selected ? ' job-card__list-btn--added' : ''}" data-action="toggle" data-id="${esc(job.id)}">
@@ -211,6 +229,68 @@ function formatDescriptionText(text) {
 function metaRow(label, value) {
   if (!value) return '';
   return `<div class="jobs-detail__meta-row"><span class="jobs-detail__meta-label">${esc(label)}</span><span class="jobs-detail__meta-value">${esc(value)}</span></div>`;
+}
+
+function renderPagination(totalPages) {
+  if (!els.jobsPagination) return;
+  if (totalPages <= 1) {
+    els.jobsPagination.innerHTML = '';
+    els.jobsPagination.classList.add('is-hidden');
+    return;
+  }
+  els.jobsPagination.classList.remove('is-hidden');
+
+  const prevDisabled = state.page <= 1;
+  const nextDisabled = state.page >= totalPages;
+
+  const pages = [];
+  for (let i = 1; i <= totalPages; i += 1) {
+    const near = Math.abs(i - state.page) <= 1;
+    const edge = i === 1 || i === totalPages;
+    if (near || edge || totalPages <= 7) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== '…') {
+      pages.push('…');
+    }
+  }
+
+  const pageButtons = pages.map((p) => {
+    if (p === '…') return '<span class="jobs-page-ellipsis" aria-hidden="true">…</span>';
+    const active = p === state.page;
+    return `<button type="button" class="jobs-page-btn${active ? ' jobs-page-btn--active' : ''}" data-page="${p}"${active ? ' aria-current="page"' : ''}>${p}</button>`;
+  }).join('');
+
+  els.jobsPagination.innerHTML = `
+    <button type="button" class="jobs-page-nav" data-nav="prev"${prevDisabled ? ' disabled' : ''}>Previous</button>
+    <div class="jobs-page-numbers" role="navigation" aria-label="Job pages">${pageButtons}</div>
+    <button type="button" class="jobs-page-nav" data-nav="next"${nextDisabled ? ' disabled' : ''}>Next</button>`;
+
+  els.jobsPagination.querySelector('[data-nav="prev"]')?.addEventListener('click', () => {
+    if (state.page > 1) {
+      state.page -= 1;
+      renderJobsPage();
+      els.jobsGrid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      onInteraction();
+    }
+  });
+
+  els.jobsPagination.querySelector('[data-nav="next"]')?.addEventListener('click', () => {
+    if (state.page < totalPages) {
+      state.page += 1;
+      renderJobsPage();
+      els.jobsGrid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      onInteraction();
+    }
+  });
+
+  els.jobsPagination.querySelectorAll('[data-page]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.page = Number(btn.dataset.page);
+      renderJobsPage();
+      els.jobsGrid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      onInteraction();
+    });
+  });
 }
 
 function openJobDetail(jobId) {
@@ -287,6 +367,7 @@ function renderJobsPage() {
     }
     if (els.jobsNoResults) els.jobsNoResults.classList.add('is-hidden');
     if (els.jobsSummary) els.jobsSummary.innerHTML = '<span class="jobs-count">0 jobs found</span>';
+    renderPagination(1);
     renderCart();
     return;
   }
@@ -328,6 +409,8 @@ function renderJobsPage() {
   if (els.jobsSummary) {
     els.jobsSummary.innerHTML = `<span class="jobs-count">${filtered.length} job${filtered.length === 1 ? '' : 's'} found</span> · Page ${state.page} of ${totalPages}`;
   }
+
+  renderPagination(totalPages);
 
   if (state.detailJobId) {
     openJobDetail(state.detailJobId);
@@ -421,7 +504,7 @@ async function handleEmailSubmit(e) {
     });
     if (els.jobsEmailSuccess) {
       els.jobsEmailSuccess.classList.remove('is-hidden');
-      els.jobsEmailSuccess.textContent = 'Your job list has been sent! Check your inbox.';
+      els.jobsEmailSuccess.textContent = 'Your job list has been sent. Check your email for the Handshake links.';
     }
     if (els.jobsEmailForm) els.jobsEmailForm.classList.add('is-hidden');
     state.selected.clear();
@@ -453,6 +536,7 @@ export function getJobsPageElements() {
     jobsGrid: document.getElementById('jobs-grid'),
     jobsEmpty: document.getElementById('jobs-empty'),
     jobsNoResults: document.getElementById('jobs-no-results'),
+    jobsPagination: document.getElementById('jobs-pagination'),
     jobsDetailOverlay: document.getElementById('jobs-detail-overlay'),
     jobsDetailPanel: document.getElementById('jobs-detail-panel'),
     jobsDetailClose: document.getElementById('jobs-detail-close'),

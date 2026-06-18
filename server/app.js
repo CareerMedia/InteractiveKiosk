@@ -1,0 +1,278 @@
+import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { XMLParser } from 'fast-xml-parser';
+import {
+  readJobs,
+  readJobsConfig,
+  writeJobs,
+  writeJobsConfig,
+  clearJobs,
+  syncJobsFromFeed,
+  validateFeedUrl,
+} from './lib/jobs-store.js';
+import {
+  buildJobListEmail,
+  sendViaBrevo,
+  sendTestEmail,
+  isValidEmail,
+  safeErrorMessage,
+  publicEmailError,
+  logEmailDiagnostics,
+  getBrevoEnvStatus,
+} from './lib/email.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const ROOT = path.resolve(__dirname, '..');
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'career1';
+
+const emailRateLimit = new Map();
+const EMAIL_LIMIT_WINDOW_MS = 60_000;
+const EMAIL_LIMIT_MAX = 5;
+
+function checkAdminAuth(req) {
+  const header = req.headers['x-admin-password'] || '';
+  const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  return (header || bearer) === ADMIN_PASSWORD;
+}
+
+function adminOnly(req, res, next) {
+  if (!checkAdminAuth(req)) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  next();
+}
+
+function checkEmailRateLimit(ip) {
+  const now = Date.now();
+  const entry = emailRateLimit.get(ip) || { count: 0, resetAt: now + EMAIL_LIMIT_WINDOW_MS };
+  if (now > entry.resetAt) {
+    entry.count = 0;
+    entry.resetAt = now + EMAIL_LIMIT_WINDOW_MS;
+  }
+  entry.count += 1;
+  emailRateLimit.set(ip, entry);
+  return entry.count <= EMAIL_LIMIT_MAX;
+}
+
+export function createApp({ serveStatic = true } = {}) {
+  const app = express();
+  app.set('trust proxy', 1);
+
+  // Allow GitHub Pages kiosk/admin to call this API on Vercel or another host.
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Password, Authorization');
+    }
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
+  app.use(express.json({ limit: '1mb' }));
+
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      ok: true,
+      hasBrevoApiKey: Boolean(process.env.BREVO_API_KEY),
+      hasSenderEmail: Boolean(process.env.BREVO_SENDER_EMAIL),
+    });
+  });
+
+  app.get('/api/jobs', async (_req, res) => {
+    try {
+      const data = await readJobs();
+      res.json({
+        meta: {
+          sourceType: data.meta?.sourceType,
+          feedTitle: data.meta?.feedTitle,
+          feedDescription: data.meta?.feedDescription,
+          channelLink: data.meta?.channelLink,
+          lastSyncedAt: data.meta?.lastSyncedAt,
+          clearedAt: data.meta?.clearedAt,
+          totalJobs: data.meta?.totalJobs ?? (data.jobs?.length || 0),
+        },
+        jobs: data.jobs || [],
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/jobs/send-list', async (req, res) => {
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    if (!checkEmailRateLimit(ip)) {
+      return res.status(429).json({ success: false, error: 'Too many requests. Please wait a moment and try again.' });
+    }
+
+    const { studentName, studentEmail, jobs: jobIds } = req.body || {};
+
+    if (!isValidEmail(studentEmail)) {
+      return res.status(400).json({ success: false, error: 'A valid student email address is required.' });
+    }
+    if (!Array.isArray(jobIds) || !jobIds.length) {
+      return res.status(400).json({ success: false, error: 'Select at least one job to email.' });
+    }
+    if (jobIds.length > 25) {
+      return res.status(400).json({ success: false, error: 'You can email up to 25 jobs at a time.' });
+    }
+
+    try {
+      const data = await readJobs();
+      const idSet = new Set(jobIds.map(String));
+      const selected = (data.jobs || []).filter((j) => idSet.has(String(j.id)));
+
+      if (!selected.length) {
+        logEmailDiagnostics('/api/jobs/send-list', {
+          selectedJobCount: jobIds.length,
+          matchedJobCount: 0,
+          message: 'No matching jobs found',
+        });
+        return res.status(400).json({ success: false, error: 'None of the selected jobs were found.' });
+      }
+
+      const subject = 'Your Career Fair Job List from the CSUN Career Center';
+      const { htmlContent, textContent } = buildJobListEmail({
+        studentName: studentName?.trim() || '',
+        jobs: selected,
+      });
+
+      await sendViaBrevo({
+        toEmail: studentEmail.trim(),
+        toName: studentName?.trim() || studentEmail.trim(),
+        subject,
+        htmlContent,
+        textContent,
+      });
+
+      res.json({ success: true, sent: selected.length });
+    } catch (err) {
+      const data = await readJobs().catch(() => ({ jobs: [] }));
+      const idSet = new Set(jobIds.map(String));
+      const matched = (data.jobs || []).filter((j) => idSet.has(String(j.id)));
+      logEmailDiagnostics('/api/jobs/send-list', {
+        selectedJobCount: jobIds.length,
+        matchedJobCount: matched.length,
+        brevoStatus: err.brevoStatus ?? null,
+        brevoBody: err.brevoBody ?? null,
+        message: err.message,
+      });
+      res.status(500).json({ success: false, error: publicEmailError() });
+    }
+  });
+
+  app.post('/api/admin/jobs/test-email', adminOnly, async (req, res) => {
+    const { testEmail, testName } = req.body || {};
+
+    if (!isValidEmail(testEmail)) {
+      return res.status(400).json({ success: false, error: 'A valid test email address is required.' });
+    }
+
+    const envStatus = getBrevoEnvStatus();
+    if (!envStatus.hasBrevoApiKey || !envStatus.hasSenderEmail) {
+      logEmailDiagnostics('/api/admin/jobs/test-email', {
+        ...envStatus,
+        message: 'Missing Brevo configuration',
+      });
+      return res.status(500).json({
+        success: false,
+        error: 'Brevo is not configured on the server. Check BREVO_API_KEY and BREVO_SENDER_EMAIL.',
+      });
+    }
+
+    try {
+      await sendTestEmail({
+        testEmail: testEmail.trim(),
+        testName: testName?.trim() || '',
+      });
+      res.json({ success: true });
+    } catch (err) {
+      logEmailDiagnostics('/api/admin/jobs/test-email', {
+        brevoStatus: err.brevoStatus ?? null,
+        brevoBody: err.brevoBody ?? null,
+        message: err.message,
+      });
+      res.status(500).json({ success: false, error: safeErrorMessage(err) });
+    }
+  });
+
+  app.get('/api/admin/jobs/config', adminOnly, async (_req, res) => {
+    try {
+      const config = await readJobsConfig();
+      const jobs = await readJobs();
+      res.json({
+        feedUrl: config.feedUrl || jobs.meta?.feedUrl || '',
+        updatedAt: config.updatedAt,
+        meta: jobs.meta,
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/admin/jobs/config', adminOnly, async (req, res) => {
+    try {
+      const feedUrl = req.body?.feedUrl != null ? validateFeedUrl(req.body.feedUrl) : '';
+      const config = { feedUrl, updatedAt: new Date().toISOString() };
+      await writeJobsConfig(config);
+
+      const jobs = await readJobs();
+      if (jobs.meta) jobs.meta.feedUrl = feedUrl;
+      await writeJobs(jobs);
+
+      res.json({ success: true, feedUrl });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/admin/jobs/sync', adminOnly, async (req, res) => {
+    try {
+      const config = await readJobsConfig();
+      const feedUrl = req.body?.feedUrl || config.feedUrl;
+      if (!feedUrl) {
+        return res.status(400).json({ success: false, error: 'Save an RSS feed URL before syncing.' });
+      }
+
+      const data = await syncJobsFromFeed(feedUrl, { XMLParser });
+      res.json({
+        success: true,
+        totalJobs: data.meta.totalJobs,
+        lastSyncedAt: data.meta.lastSyncedAt,
+        feedTitle: data.meta.feedTitle,
+        errors: data.errors || [],
+      });
+    } catch (err) {
+      console.error('Sync error:', err);
+      res.status(500).json({ success: false, error: err.message, errors: [err.message] });
+    }
+  });
+
+  app.post('/api/admin/jobs/clear', adminOnly, async (_req, res) => {
+    try {
+      const data = await clearJobs();
+      res.json({
+        success: true,
+        clearedAt: data.meta.clearedAt,
+        totalJobs: 0,
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  if (serveStatic) {
+    app.use(express.static(ROOT));
+
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/')) return next();
+      if (req.path.includes('.')) return next();
+      res.sendFile(path.join(ROOT, 'index.html'));
+    });
+  }
+
+  return app;
+}

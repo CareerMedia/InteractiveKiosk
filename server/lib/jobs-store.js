@@ -8,7 +8,7 @@ import {
 } from '../../src/shared/jobs-parser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, '../..');
 export const JOBS_PATH = path.join(ROOT, 'data', 'jobs.json');
 export const JOBS_CONFIG_PATH = path.join(ROOT, 'data', 'jobs-config.json');
 

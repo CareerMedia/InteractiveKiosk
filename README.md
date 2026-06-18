@@ -10,7 +10,25 @@ A premium, light-mode, GitHub Pages-ready kiosk for career fairs.
 4. Select **main** and **/(root)**.
 5. Save.
 
-This repo is static HTML/CSS/JS, so it does **not** require Vite, npm, or GitHub Actions.
+This repo is static HTML/CSS/JS, so it does **not** require Vite, npm, or GitHub Actions for the kiosk itself.
+
+### Job Opportunities API (email & RSS sync)
+
+GitHub Pages **cannot run Node.js**. Features that need the API — student job-list email, admin test email, and server-side RSS sync — require a separate Node server.
+
+**Recommended: deploy the API on [Vercel](https://vercel.com)** (free tier available):
+
+1. Push this repo to GitHub (includes `vercel.json` and `api/index.js`).
+2. In Vercel: **Add New → Project** → import the repo and deploy (no build command needed).
+3. In the Vercel project → **Settings → Environment Variables**, add:
+   - `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`
+   - `ADMIN_PASSWORD` (must match the admin dashboard password, default `career1`)
+4. After deploy, copy your Vercel URL (e.g. `https://interactive-kiosk.vercel.app`).
+5. In the admin dashboard → **Job Opportunities** tab → paste that URL in **API server URL** → **Save API URL**. This writes `apiBaseUrl` to `config.json` so GitHub Pages admin and kiosk can reach the API.
+
+**Alternative:** deploy the whole repo to Vercel instead of GitHub Pages — static files and `/api/*` run on the same origin, so no `apiBaseUrl` is needed.
+
+Locally, run `npm start` and open `http://localhost:3000/admin/` for full API + admin on one host.
 
 ## Layout
 
@@ -123,7 +141,9 @@ Password-protected management UI that **commits directly to this repo** via the 
 ```
 index.html                ← main kiosk
 styles/main.css
-config.json               ← admin-managed runtime config (map URL + version)
+config.json               ← admin-managed runtime config (map URL, apiBaseUrl, version)
+vercel.json               ← Vercel config for the Node API (/api/*)
+api/index.js              ← Vercel serverless entry for Express API routes
 
 src/app.js
 src/config/

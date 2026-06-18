@@ -1357,14 +1357,43 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   font-weight: 600;
   margin-bottom: 10px;
 }
+.job-card__excerpt,
 .job-card__summary {
   font-size: 0.88rem;
-  color: var(--ink);
-  line-height: 1.5;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin-bottom: 12px;
   display: -webkit-box;
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.job-card__meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 10px 12px;
+  background: var(--off-white);
+  border-radius: var(--radius-sm);
+}
+.job-card__meta-item { min-width: 0; }
+.job-card__meta-label {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  margin-bottom: 2px;
+}
+.job-card__meta-value {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  overflow: hidden;
+  word-break: break-word;
 }
 .job-card__actions {
   display: flex;
@@ -1401,6 +1430,63 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   width: 100%;
 }
 .job-card__more-btn:hover { background: var(--red-dark); }
+
+.jobs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding-bottom: 12px;
+}
+.jobs-pagination.is-hidden { display: none; }
+.jobs-page-nav {
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--light-gray);
+  background: var(--white);
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+.jobs-page-nav:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.jobs-page-nav:not(:disabled):hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+.jobs-page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.jobs-page-btn {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--light-gray);
+  background: var(--white);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.jobs-page-btn--active {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--white);
+}
+.jobs-page-btn:not(.jobs-page-btn--active):hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+.jobs-page-ellipsis {
+  padding: 0 4px;
+  color: var(--ink-soft);
+}
 
 .job-card--skeleton { pointer-events: none; }
 .job-card__skel-bar { height: 4px; background: #f0f0f0; }

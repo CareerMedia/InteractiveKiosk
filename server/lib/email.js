@@ -14,7 +14,11 @@ function jobBlock(job) {
   const posted = formatJobDate(job.pubDate);
   const expires = formatJobDate(job.expiresAt);
   const summary = escapeHtml(job.summary || job.descriptionText?.slice(0, 300) || '');
-  const url = escapeHtml(job.applicationUrl);
+  const url = job.applicationUrl ? escapeHtml(job.applicationUrl) : '';
+
+  const linkHtml = url
+    ? `<a href="${url}" style="display:inline-block;padding:10px 18px;background:#d22030;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View Job on Handshake</a>`
+    : '';
 
   return `
     <tr>
@@ -24,7 +28,7 @@ function jobBlock(job) {
         <p style="margin:0 0 4px;font-size:13px;color:#777;">Posted ${posted || '—'}</p>
         <p style="margin:0 0 10px;font-size:13px;color:#d22030;">Expires ${expires || '—'}</p>
         ${summary ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.5;color:#333;">${summary}</p>` : ''}
-        <a href="${url}" style="display:inline-block;padding:10px 18px;background:#d22030;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View Job on Handshake</a>
+        ${linkHtml}
       </td>
     </tr>`;
 }
@@ -103,8 +107,24 @@ export async function sendViaBrevo({ toEmail, toName, subject, htmlContent, text
   const senderEmail = process.env.BREVO_SENDER_EMAIL;
   const senderName = process.env.BREVO_SENDER_NAME || 'CSUN Career Center';
 
-  if (!apiKey) throw new Error('BREVO_API_KEY is not configured on the server.');
-  if (!senderEmail) throw new Error('BREVO_SENDER_EMAIL is not configured on the server.');
+  if (!apiKey) {
+    const err = new Error('BREVO_API_KEY is not configured on the server.');
+    err.code = 'BREVO_NOT_CONFIGURED';
+    throw err;
+  }
+  if (!senderEmail) {
+    const err = new Error('BREVO_SENDER_EMAIL is not configured on the server.');
+    err.code = 'BREVO_NOT_CONFIGURED';
+    throw err;
+  }
+
+  const payload = {
+    sender: { name: senderName, email: senderEmail },
+    to: [{ email: toEmail, name: toName || toEmail }],
+    subject,
+    htmlContent: htmlContent || '<p></p>',
+    textContent: textContent || subject,
+  };
 
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
@@ -113,25 +133,48 @@ export async function sendViaBrevo({ toEmail, toName, subject, htmlContent, text
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({
-      sender: { name: senderName, email: senderEmail },
-      to: [{ email: toEmail, name: toName || toEmail }],
-      subject,
-      htmlContent,
-      textContent,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
-    let msg = `Brevo API error (${res.status})`;
+    let bodyMsg = '';
+    let bodyText = '';
     try {
       const body = await res.json();
-      msg = body.message || body.code || msg;
-    } catch { /* ignore */ }
-    throw new Error(msg);
+      bodyText = JSON.stringify(body);
+      bodyMsg = body.message || body.code || '';
+    } catch {
+      try {
+        bodyText = (await res.text()).slice(0, 500);
+      } catch { /* ignore */ }
+    }
+    const err = new Error(bodyMsg || `Brevo API error (${res.status})`);
+    err.brevoStatus = res.status;
+    err.brevoBody = bodyText;
+    throw err;
   }
 
   return res.json();
+}
+
+export function getBrevoEnvStatus() {
+  return {
+    hasBrevoApiKey: Boolean(process.env.BREVO_API_KEY),
+    hasSenderEmail: Boolean(process.env.BREVO_SENDER_EMAIL),
+    hasSenderName: Boolean(process.env.BREVO_SENDER_NAME),
+  };
+}
+
+export function logEmailDiagnostics(route, details) {
+  const safe = {
+    route,
+    ...getBrevoEnvStatus(),
+    ...details,
+  };
+  if (safe.brevoBody && typeof safe.brevoBody === 'string') {
+    safe.brevoBody = safe.brevoBody.slice(0, 500);
+  }
+  console.error('[email]', JSON.stringify(safe));
 }
 
 export function isValidEmail(email) {
@@ -195,13 +238,17 @@ export async function sendTestEmail({ testEmail, testName }) {
 
 function safeErrorMessage(err) {
   const msg = String(err?.message || 'Email could not be sent.');
-  if (msg.includes('BREVO_API_KEY') || msg.includes('BREVO_SENDER')) {
+  if (msg.includes('BREVO_API_KEY') || msg.includes('BREVO_SENDER') || err?.code === 'BREVO_NOT_CONFIGURED') {
     return 'Brevo is not configured on the server. Check environment variables.';
   }
   if (msg.toLowerCase().includes('api-key') || msg.toLowerCase().includes('unauthorized')) {
     return 'Brevo rejected the request. Verify your API key and sender email.';
   }
   return msg.length > 200 ? 'Email could not be sent. Check server logs for details.' : msg;
+}
+
+export function publicEmailError() {
+  return 'EMAIL_SEND_FAILED';
 }
 
 export { safeErrorMessage };
