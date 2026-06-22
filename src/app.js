@@ -324,8 +324,7 @@ const tickerDrag = {
 function makeTickerCard(logo, index, colIndex) {
   const card = document.createElement('div');
   const sizeCls = TICKER_SIZES[index % TICKER_SIZES.length];
-  const isHiring = (index + colIndex * 3) % 11 === 4;
-  card.className = `ticker-card ${sizeCls}${isHiring ? ' ticker-card--hiring' : ''}`;
+  card.className = `ticker-card ${sizeCls}`;
   card.style.setProperty('--card-shimmer-delay', `${(index % 9) * 1.15}s`);
 
   const logoWrap = document.createElement('div');
@@ -337,13 +336,6 @@ function makeTickerCard(logo, index, colIndex) {
   img.draggable = false;
   logoWrap.appendChild(img);
   card.appendChild(logoWrap);
-
-  if (isHiring) {
-    const chip = document.createElement('span');
-    chip.className = 'ticker-card__chip';
-    chip.textContent = 'Hiring';
-    card.appendChild(chip);
-  }
 
   return card;
 }

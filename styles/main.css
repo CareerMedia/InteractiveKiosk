@@ -560,30 +560,6 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 .ticker-card--md .ticker-card__logo img { max-height: 44px; }
 .ticker-card--sm .ticker-card__logo img { max-height: 38px; }
 
-.ticker-card--hiring::before {
-  background: linear-gradient(90deg, #1a7a3a, #2bb568, #1a7a3a);
-}
-
-.ticker-card__chip {
-  position: absolute;
-  top: 8px; right: 8px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--red);
-  color: #fff;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.58rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  box-shadow: 0 2px 6px rgba(210,32,48,0.35);
-  pointer-events: none;
-}
-.ticker-card--hiring .ticker-card__chip {
-  background: #1f8f4a;
-  box-shadow: 0 2px 6px rgba(31,143,74,0.35);
-}
-
 .ticker-empty {
   grid-column: 1 / -1;
   display: flex; align-items: center; justify-content: center;
