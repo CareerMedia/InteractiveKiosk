@@ -260,6 +260,46 @@ export async function deleteFilesAtomically(conn, { paths, message, keepFolderPa
   return newCommit;
 }
 
+// ─── Atomic multi-file JSON commit (jobs sync, etc.) ───────────────────────
+// Updates several paths in a single commit so partial writes and SHA races
+// cannot leave jobs.json and jobs-config.json out of sync.
+export async function commitJsonFilesAtomically(conn, { files, message }) {
+  if (!files?.length) throw new Error('No files to commit.');
+  const base = `/repos/${conn.owner}/${conn.repo}`;
+
+  const refInfo = await ghFetch(conn, `${base}/git/ref/heads/${encodeURIComponent(conn.branch)}`);
+  const parentSha = refInfo.object.sha;
+  const parentCommit = await ghFetch(conn, `${base}/git/commits/${parentSha}`);
+  const baseTreeSha = parentCommit.tree.sha;
+
+  const treeEntries = files.map(({ path, data }) => ({
+    path: String(path).replace(/^\/+/, ''),
+    mode: '100644',
+    type: 'blob',
+    content: typeof data === 'string' ? data : `${JSON.stringify(data, null, 2)}\n`,
+  }));
+
+  const newTree = await ghFetch(conn, `${base}/git/trees`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries }),
+  });
+
+  const newCommit = await ghFetch(conn, `${base}/git/commits`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, tree: newTree.sha, parents: [parentSha] }),
+  });
+
+  await ghFetch(conn, `${base}/git/refs/heads/${encodeURIComponent(conn.branch)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sha: newCommit.sha, force: false }),
+  });
+
+  return newCommit;
+}
+
 // ─── Helpers for uploads ────────────────────────────────────────────────────
 export function sanitizeFilename(name) {
   return String(name)

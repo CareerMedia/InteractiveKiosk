@@ -6,7 +6,7 @@ import { TIMING_CONFIG } from './config/timing.js';
 import { URL_CONFIG } from './config/urls.js';
 import { loadConfig } from './shared/config.js';
 import { apiUrl } from './shared/api-base.js';
-import { initJobsPage, loadJobsPage, getJobsPageElements } from './jobs-page.js';
+import { initJobsPage, loadJobsPage, getJobsPageElements, resetJobsSession } from './jobs-page.js';
 
 // ─── STATE ────────────────────────────────────────────────
 const state = {
@@ -937,6 +937,8 @@ function ensurePartnersLoaded() {
 function setView(viewId) {
   if (!VIEWS[viewId]) return;
 
+  const previousView = state.activeView;
+
   Object.entries(VIEWS).forEach(([id, meta]) => {
     const isActive = id === viewId;
     if (meta.el) {
@@ -969,6 +971,7 @@ function setView(viewId) {
 
   // Inactivity + popup scheduling
   if (viewId === 'home') {
+    if (previousView === 'jobs') resetJobsSession();
     clearInactivityTimers();
     clearPopupTimers();
     if (els.countdownPill) els.countdownPill.classList.add('is-hidden');

@@ -2,7 +2,7 @@
 // Job Opportunities kiosk page
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { loadJobs, sendJobListEmail } from './shared/jobs-loader.js';
+import { loadJobs, sendJobListEmail, MAX_EMAIL_JOBS } from './shared/jobs-loader.js';
 import { formatJobDate, getEmployerInitials, jobCardExcerpt, truncateWords } from './shared/jobs-parser.js';
 
 const PAGE_SIZE = 10;
@@ -648,6 +648,12 @@ function openEmailModal() {
   if (els.jobsEmailError) els.jobsEmailError.classList.add('is-hidden');
   if (els.jobsEmailSuccess) els.jobsEmailSuccess.classList.add('is-hidden');
   if (els.jobsEmailForm) els.jobsEmailForm.reset();
+  if (state.selected.size > MAX_EMAIL_JOBS) {
+    showEmailError(`You can email up to ${MAX_EMAIL_JOBS} jobs at a time. Remove a few from your list and try again.`);
+    if (els.jobsEmailSubmit) els.jobsEmailSubmit.disabled = true;
+  } else if (els.jobsEmailSubmit) {
+    els.jobsEmailSubmit.disabled = false;
+  }
   els.jobsEmailEmail?.focus();
   onInteraction();
 }
@@ -655,6 +661,26 @@ function openEmailModal() {
 function closeEmailModal() {
   state.emailModalOpen = false;
   if (els.jobsEmailBackdrop) els.jobsEmailBackdrop.classList.add('is-hidden');
+}
+
+/** Clear a student's job list when the kiosk returns home (timeout or manual). */
+export function resetJobsSession() {
+  state.selected.clear();
+  state.cartOpen = false;
+
+  if (state.emailModalOpen) closeEmailModal();
+  if (els.jobsEmailForm) {
+    els.jobsEmailForm.classList.remove('is-hidden');
+    els.jobsEmailForm.reset();
+  }
+  if (els.jobsEmailSuccess) els.jobsEmailSuccess.classList.add('is-hidden');
+  if (els.jobsEmailError) els.jobsEmailError.classList.add('is-hidden');
+  if (els.jobsEmailSubmit) els.jobsEmailSubmit.disabled = false;
+
+  if (state.detailJobId) closeJobDetail();
+
+  if (state.loaded) renderJobsPage();
+  else renderCart();
 }
 
 async function handleEmailSubmit(e) {
@@ -669,6 +695,10 @@ async function handleEmailSubmit(e) {
   }
   if (!consent) {
     showEmailError('Please agree to receive your job list by email.');
+    return;
+  }
+  if (state.selected.size > MAX_EMAIL_JOBS) {
+    showEmailError(`You can email up to ${MAX_EMAIL_JOBS} jobs at a time. Remove a few from your list and try again.`);
     return;
   }
 
@@ -695,8 +725,15 @@ async function handleEmailSubmit(e) {
       if (els.jobsEmailSuccess) els.jobsEmailSuccess.classList.add('is-hidden');
       renderJobsPage();
     }, 2200);
-  } catch {
-    showEmailError('We couldn\u2019t send your job list right now. Please try again or ask a Career Center team member for help.');
+  } catch (err) {
+    const code = err?.code || err?.message || '';
+    if (code === 'EMAIL_API_UNAVAILABLE') {
+      showEmailError('Email is not available on this kiosk right now. Please ask a Career Center team member for help.');
+    } else if (code && code !== 'EMAIL_SEND_FAILED') {
+      showEmailError(err.message);
+    } else {
+      showEmailError('We couldn\u2019t send your job list right now. Please try again or ask a Career Center team member for help.');
+    }
   } finally {
     if (submit) { submit.disabled = false; submit.textContent = prev; }
   }

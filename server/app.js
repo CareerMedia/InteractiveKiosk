@@ -23,6 +23,7 @@ import {
   logEmailDiagnostics,
   getBrevoEnvStatus,
 } from './lib/email.js';
+import { MAX_EMAIL_JOBS } from '../src/shared/jobs-constants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, '..');
@@ -149,8 +150,11 @@ export function createApp({ serveStatic = true } = {}) {
     if (!Array.isArray(jobIds) || !jobIds.length) {
       return res.status(400).json({ success: false, error: 'Select at least one job to email.' });
     }
-    if (jobIds.length > 25) {
-      return res.status(400).json({ success: false, error: 'You can email up to 25 jobs at a time.' });
+    if (jobIds.length > MAX_EMAIL_JOBS) {
+      return res.status(400).json({
+        success: false,
+        error: `You can email up to ${MAX_EMAIL_JOBS} jobs at a time.`,
+      });
     }
 
     try {

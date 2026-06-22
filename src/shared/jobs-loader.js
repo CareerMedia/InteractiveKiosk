@@ -5,6 +5,7 @@
 import { apiUrl, isApiAvailable, resolveApiBase } from './api-base.js';
 
 export { formatJobDate } from './jobs-parser.js';
+export { MAX_EMAIL_JOBS } from './jobs-constants.js';
 
 function jobsJsonUrl() {
   const { origin, pathname } = window.location;

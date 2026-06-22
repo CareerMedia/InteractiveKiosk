@@ -14,6 +14,7 @@ import {
   getSavedConnection, saveConnection, clearConnection, inferRepoDefaults,
   validateConnection,
   listDir, getJsonFile, putJsonFile, deleteFile, deleteFilesAtomically,
+  commitJsonFilesAtomically,
   uploadFiles, rawUrl,
 } from '../src/shared/github.js';
 import {
@@ -755,6 +756,66 @@ async function fetchRssViaProxy(feedUrl) {
   throw new Error(lastErr?.message || 'Could not fetch RSS feed through proxy.');
 }
 
+async function commitJobsSyncToRepo(feedUrl, data) {
+  if (!Array.isArray(data.jobs)) {
+    throw new Error('Sync returned no job list.');
+  }
+
+  const fullData = {
+    meta: {
+      sourceType: 'handshake-rss',
+      feedUrl,
+      feedTitle: data.meta?.feedTitle || '',
+      feedDescription: data.meta?.feedDescription || '',
+      channelLink: data.meta?.channelLink || '',
+      lastSyncedAt: data.meta?.lastSyncedAt || new Date().toISOString(),
+      clearedAt: '',
+      totalJobs: data.jobs.length,
+    },
+    jobs: data.jobs,
+  };
+
+  const jobsConfig = { feedUrl, updatedAt: new Date().toISOString() };
+  const message = `admin: sync ${fullData.jobs.length} job(s) from Handshake RSS`;
+
+  let lastErr;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await loadJobsFromRepo();
+      await loadConfigFromRepo();
+
+      const nextConfig = {
+        ...(configState.data || {}),
+        mapUrl: configState.data?.mapUrl || MAP_CONFIG.embedUrl,
+        apiBaseUrl: configState.data?.apiBaseUrl || '',
+        version: Number(configState.data?.version || 0) + 1,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await commitJsonFilesAtomically(conn, {
+        message,
+        files: [
+          { path: JOBS_PATH, data: fullData },
+          { path: JOBS_CONFIG_PATH, data: jobsConfig },
+          { path: CONFIG_PATH, data: nextConfig },
+        ],
+      });
+
+      jobsState = { data: fullData, sha: null };
+      jobsConfigState = { data: jobsConfig, sha: null };
+      configState = { data: nextConfig, sha: null };
+      invalidateApiBaseCache();
+      await loadJobsFromRepo();
+      await loadConfigFromRepo();
+      return fullData;
+    } catch (err) {
+      lastErr = err;
+      if (err.status !== 409) throw err;
+    }
+  }
+  throw lastErr || new Error('Could not commit sync to GitHub (conflict). Try again.');
+}
+
 async function syncJobsGitHub(feedUrl) {
   const xmlText = await fetchRssViaProxy(feedUrl);
   const channel = parseRssXmlInBrowser(xmlText);
@@ -762,10 +823,14 @@ async function syncJobsGitHub(feedUrl) {
   if (!data.jobs.length) {
     data.warnings = ['No job items were found in the feed.'];
   }
-  await commitJobsConfig({ feedUrl, updatedAt: new Date().toISOString() }, 'admin: sync jobs config');
-  await commitJobs(data, `admin: sync ${data.jobs.length} job(s) from Handshake RSS`);
-  await commitConfig({ bumpVersion: true, message: 'admin: bump kiosk cache version after jobs sync' });
-  return data;
+  const fullData = await commitJobsSyncToRepo(feedUrl, data);
+  return {
+    totalJobs: fullData.jobs.length,
+    jobs: fullData.jobs,
+    meta: fullData.meta,
+    warnings: data.warnings || [],
+    errors: data.errors || [],
+  };
 }
 
 async function syncJobs(feedUrl) {
@@ -778,39 +843,20 @@ async function syncJobs(feedUrl) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || 'Sync failed');
 
-    // Serverless hosts (Vercel) cannot write jobs.json — response includes full payload.
-    let fullData = null;
-    if (Array.isArray(body.jobs) && body.meta) {
-      fullData = { meta: body.meta, jobs: body.jobs };
-    } else {
-      const jobsRes = await fetch(await apiUrl('/api/jobs'), { cache: 'no-store' });
-      if (jobsRes.ok) {
-        const jobsData = await jobsRes.json();
-        fullData = {
-          meta: {
-            sourceType: 'handshake-rss',
-            feedUrl,
-            feedTitle: body.feedTitle || jobsData.meta?.feedTitle || '',
-            feedDescription: jobsData.meta?.feedDescription || '',
-            channelLink: jobsData.meta?.channelLink || '',
-            lastSyncedAt: body.lastSyncedAt || jobsData.meta?.lastSyncedAt || new Date().toISOString(),
-            clearedAt: '',
-            totalJobs: body.totalJobs ?? jobsData.jobs?.length ?? 0,
-          },
-          jobs: jobsData.jobs || [],
-        };
-      }
+    if (!Array.isArray(body.jobs)) {
+      throw new Error(
+        'The API did not return job data. Redeploy your Vercel project, then sync again.',
+      );
     }
 
-    if (fullData) {
-      await commitJobsConfig({ feedUrl, updatedAt: new Date().toISOString() }, 'admin: sync jobs config');
-      await commitJobs(fullData, `admin: sync ${fullData.meta.totalJobs ?? fullData.jobs.length} job(s) from Handshake RSS`);
-    }
-
-    if ((body.totalJobs ?? fullData?.jobs?.length ?? 0) > 0) {
-      await commitConfig({ bumpVersion: true, message: 'admin: bump kiosk cache version after jobs sync' });
-    }
-    return body;
+    const fullData = await commitJobsSyncToRepo(feedUrl, { meta: body.meta, jobs: body.jobs });
+    return {
+      totalJobs: fullData.jobs.length,
+      jobs: fullData.jobs,
+      meta: fullData.meta,
+      errors: body.errors || [],
+      warnings: body.warnings || [],
+    };
   }
   return syncJobsGitHub(feedUrl);
 }
@@ -901,13 +947,13 @@ function wireJobsTab() {
     jobsSyncBtn.textContent = 'Syncing…';
     try {
       const result = await syncJobs(feedUrl);
-      const total = result.totalJobs ?? jobsState.data?.jobs?.length ?? 0;
+      const total = result.jobs?.length ?? result.totalJobs ?? 0;
       const warnings = result.errors || result.warnings || [];
       toast(
         jobsToast,
         warnings.length
-          ? `Synced ${total} job(s) with warnings: ${warnings.join(' ')}`
-          : `Synced ${total} job(s) successfully.`,
+          ? `Synced ${total} job(s) to GitHub with warnings: ${warnings.join(' ')}`
+          : `Synced ${total} job(s) to GitHub. Kiosks will pick them up on reload.`,
         warnings.length ? 'info' : 'success',
         5000,
       );

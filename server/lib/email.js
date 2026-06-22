@@ -8,12 +8,19 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+const EMAIL_EXCERPT_CHARS = 200;
+
+function excerptForEmail(job) {
+  const raw = job.summary || job.descriptionText || '';
+  return raw.length > EMAIL_EXCERPT_CHARS ? `${raw.slice(0, EMAIL_EXCERPT_CHARS).trim()}…` : raw;
+}
+
 function jobBlock(job) {
   const title = escapeHtml(job.displayTitle || job.title);
   const employer = escapeHtml(job.employer);
   const posted = formatJobDate(job.pubDate);
   const expires = formatJobDate(job.expiresAt);
-  const summary = escapeHtml(job.summary || job.descriptionText?.slice(0, 300) || '');
+  const summary = escapeHtml(excerptForEmail(job));
   const url = job.applicationUrl ? escapeHtml(job.applicationUrl) : '';
 
   const linkHtml = url
@@ -39,7 +46,7 @@ function jobBlockText(job) {
     job.employer ? `Employer: ${job.employer}` : '',
     `Posted: ${formatJobDate(job.pubDate) || '—'}`,
     `Expires: ${formatJobDate(job.expiresAt) || '—'}`,
-    job.summary ? job.summary : '',
+    excerptForEmail(job) || '',
     job.applicationUrl ? `View on Handshake: ${job.applicationUrl}` : '',
   ].filter(Boolean);
   return lines.join('\n');
