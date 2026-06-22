@@ -11,6 +11,7 @@ import {
   clearJobs,
   syncJobsFromFeed,
   validateFeedUrl,
+  isEphemeralRuntime,
 } from './lib/jobs-store.js';
 import {
   buildJobListEmail,
@@ -247,15 +248,22 @@ export function createApp({ serveStatic = true } = {}) {
 
   app.post('/api/admin/jobs/config', adminOnly, async (req, res) => {
     try {
-      const feedUrl = req.body?.feedUrl != null ? validateFeedUrl(req.body.feedUrl) : '';
+      const raw = req.body?.feedUrl;
+      const feedUrl = raw != null && String(raw).trim()
+        ? validateFeedUrl(raw)
+        : '';
+
       const config = { feedUrl, updatedAt: new Date().toISOString() };
       await writeJobsConfig(config);
 
       const jobs = await readJobs();
       if (jobs.meta) jobs.meta.feedUrl = feedUrl;
-      await writeJobs(jobs);
 
-      res.json({ success: true, feedUrl });
+      if (!isEphemeralRuntime()) {
+        await writeJobs(jobs);
+      }
+
+      res.json({ success: true, feedUrl, config, meta: jobs.meta });
     } catch (err) {
       res.status(400).json({ success: false, error: err.message });
     }
@@ -275,6 +283,8 @@ export function createApp({ serveStatic = true } = {}) {
         totalJobs: data.meta.totalJobs,
         lastSyncedAt: data.meta.lastSyncedAt,
         feedTitle: data.meta.feedTitle,
+        meta: data.meta,
+        jobs: data.jobs,
         errors: data.errors || [],
       });
     } catch (err) {
@@ -290,6 +300,8 @@ export function createApp({ serveStatic = true } = {}) {
         success: true,
         clearedAt: data.meta.clearedAt,
         totalJobs: 0,
+        meta: data.meta,
+        jobs: data.jobs,
       });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });

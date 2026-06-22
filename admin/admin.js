@@ -613,24 +613,51 @@ async function loadJobsFromRepo() {
 }
 
 async function commitJobs(data, message) {
-  const result = await putJsonFile(conn, {
-    path: JOBS_PATH,
-    data,
-    message,
-    sha: jobsState.sha,
-  });
-  jobsState = { data, sha: result.content?.sha || null };
-  return data;
+  const write = async () => {
+    const result = await putJsonFile(conn, {
+      path: JOBS_PATH,
+      data,
+      message,
+      sha: jobsState.sha,
+    });
+    jobsState = { data, sha: result.content?.sha || null };
+    return data;
+  };
+
+  await loadJobsFromRepo();
+  try {
+    return await write();
+  } catch (err) {
+    if (err.status === 409) {
+      await loadJobsFromRepo();
+      return await write();
+    }
+    throw err;
+  }
 }
 
 async function commitJobsConfig(config, message) {
-  const result = await putJsonFile(conn, {
-    path: JOBS_CONFIG_PATH,
-    data: config,
-    message,
-    sha: jobsConfigState.sha,
-  });
-  jobsConfigState = { data: config, sha: result.content?.sha || null };
+  const write = async () => {
+    const result = await putJsonFile(conn, {
+      path: JOBS_CONFIG_PATH,
+      data: config,
+      message,
+      sha: jobsConfigState.sha,
+    });
+    jobsConfigState = { data: config, sha: result.content?.sha || null };
+  };
+
+  await loadJobsFromRepo();
+  try {
+    await write();
+  } catch (err) {
+    if (err.status === 409) {
+      await loadJobsFromRepo();
+      await write();
+    } else {
+      throw err;
+    }
+  }
 }
 
 function renderJobsPreview() {
@@ -690,6 +717,7 @@ async function loadJobsTab() {
 
 async function saveFeedUrl(feedUrl) {
   const config = { feedUrl, updatedAt: new Date().toISOString() };
+
   if (await apiAvailable()) {
     const res = await fetch(await apiUrl('/api/admin/jobs/config'), {
       method: 'POST',
@@ -699,9 +727,15 @@ async function saveFeedUrl(feedUrl) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || 'Failed to save feed URL');
   }
+
+  await loadJobsFromRepo();
   await commitJobsConfig(config, 'admin: save Handshake RSS feed URL');
-  const jobs = jobsState.data || emptyJobsData();
-  if (jobs.meta) jobs.meta.feedUrl = feedUrl;
+  await loadJobsFromRepo();
+
+  const jobs = jobsState.data
+    ? { ...jobsState.data, meta: { ...jobsState.data.meta, feedUrl } }
+    : emptyJobsData({ feedUrl });
+
   await commitJobs(jobs, 'admin: update jobs feed URL in meta');
 }
 
@@ -744,28 +778,36 @@ async function syncJobs(feedUrl) {
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || 'Sync failed');
 
-    // Pull synced data from server and commit to GitHub for static kiosk deployment
-    const jobsRes = await fetch(await apiUrl('/api/jobs'), { cache: 'no-store' });
-    if (jobsRes.ok) {
-      const jobsData = await jobsRes.json();
-      const fullData = {
-        meta: {
-          sourceType: 'handshake-rss',
-          feedUrl,
-          feedTitle: body.feedTitle || jobsData.meta?.feedTitle || '',
-          feedDescription: jobsData.meta?.feedDescription || '',
-          channelLink: jobsData.meta?.channelLink || '',
-          lastSyncedAt: body.lastSyncedAt || jobsData.meta?.lastSyncedAt || new Date().toISOString(),
-          clearedAt: '',
-          totalJobs: body.totalJobs ?? jobsData.jobs?.length ?? 0,
-        },
-        jobs: jobsData.jobs || [],
-      };
-      await commitJobsConfig({ feedUrl, updatedAt: new Date().toISOString() }, 'admin: sync jobs config');
-      await commitJobs(fullData, `admin: sync ${fullData.meta.totalJobs} job(s) from Handshake RSS`);
+    // Serverless hosts (Vercel) cannot write jobs.json — response includes full payload.
+    let fullData = null;
+    if (Array.isArray(body.jobs) && body.meta) {
+      fullData = { meta: body.meta, jobs: body.jobs };
+    } else {
+      const jobsRes = await fetch(await apiUrl('/api/jobs'), { cache: 'no-store' });
+      if (jobsRes.ok) {
+        const jobsData = await jobsRes.json();
+        fullData = {
+          meta: {
+            sourceType: 'handshake-rss',
+            feedUrl,
+            feedTitle: body.feedTitle || jobsData.meta?.feedTitle || '',
+            feedDescription: jobsData.meta?.feedDescription || '',
+            channelLink: jobsData.meta?.channelLink || '',
+            lastSyncedAt: body.lastSyncedAt || jobsData.meta?.lastSyncedAt || new Date().toISOString(),
+            clearedAt: '',
+            totalJobs: body.totalJobs ?? jobsData.jobs?.length ?? 0,
+          },
+          jobs: jobsData.jobs || [],
+        };
+      }
     }
 
-    if (body.totalJobs > 0) {
+    if (fullData) {
+      await commitJobsConfig({ feedUrl, updatedAt: new Date().toISOString() }, 'admin: sync jobs config');
+      await commitJobs(fullData, `admin: sync ${fullData.meta.totalJobs ?? fullData.jobs.length} job(s) from Handshake RSS`);
+    }
+
+    if ((body.totalJobs ?? fullData?.jobs?.length ?? 0) > 0) {
       await commitConfig({ bumpVersion: true, message: 'admin: bump kiosk cache version after jobs sync' });
     }
     return body;
@@ -775,6 +817,7 @@ async function syncJobs(feedUrl) {
 
 async function clearJobsData() {
   let cleared;
+
   if (await apiAvailable()) {
     const res = await fetch(await apiUrl('/api/admin/jobs/clear'), {
       method: 'POST',
@@ -782,13 +825,18 @@ async function clearJobsData() {
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || 'Clear failed');
-    cleared = emptyJobsData({
-      feedUrl: jobsConfigState.data?.feedUrl || jobsState.data?.meta?.feedUrl || '',
-      feedTitle: jobsState.data?.meta?.feedTitle || '',
-      feedDescription: jobsState.data?.meta?.feedDescription || '',
-      channelLink: jobsState.data?.meta?.channelLink || '',
-      lastSyncedAt: jobsState.data?.meta?.lastSyncedAt || '',
-    });
+
+    if (body.meta && Array.isArray(body.jobs)) {
+      cleared = { meta: body.meta, jobs: body.jobs };
+    } else {
+      cleared = emptyJobsData({
+        feedUrl: jobsConfigState.data?.feedUrl || jobsState.data?.meta?.feedUrl || '',
+        feedTitle: jobsState.data?.meta?.feedTitle || '',
+        feedDescription: jobsState.data?.meta?.feedDescription || '',
+        channelLink: jobsState.data?.meta?.channelLink || '',
+        lastSyncedAt: jobsState.data?.meta?.lastSyncedAt || '',
+      });
+    }
   } else {
     cleared = emptyJobsData({
       feedUrl: jobsConfigState.data?.feedUrl || jobsState.data?.meta?.feedUrl || '',
@@ -798,7 +846,14 @@ async function clearJobsData() {
       lastSyncedAt: jobsState.data?.meta?.lastSyncedAt || '',
     });
   }
+
+  await loadJobsFromRepo();
   await commitJobs(cleared, 'admin: clear job opportunities');
+  await loadJobsFromRepo();
+  await commitJobsConfig(
+    { feedUrl: cleared.meta?.feedUrl || jobsConfigState.data?.feedUrl || '', updatedAt: new Date().toISOString() },
+    'admin: clear job opportunities (keep feed URL)',
+  );
   await commitConfig({ bumpVersion: true, message: 'admin: bump kiosk cache version after jobs clear' });
   return cleared;
 }
@@ -824,7 +879,7 @@ function wireJobsTab() {
     try {
       await saveFeedUrl(feedUrl);
       toast(jobsToast, 'Feed URL saved.', 'success');
-      renderJobsPreview();
+      await loadJobsTab();
     } catch (err) {
       toast(jobsToast, err.message, 'error', 6000);
     } finally {

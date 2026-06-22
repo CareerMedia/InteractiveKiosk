@@ -12,6 +12,11 @@ const ROOT = path.resolve(__dirname, '../..');
 export const JOBS_PATH = path.join(ROOT, 'data', 'jobs.json');
 export const JOBS_CONFIG_PATH = path.join(ROOT, 'data', 'jobs-config.json');
 
+/** Vercel/Lambda deploy bundles are read-only; job data is committed to GitHub by admin. */
+export function isEphemeralRuntime() {
+  return Boolean(process.env.VERCEL) || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+}
+
 export async function readJson(filePath, fallback) {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
@@ -22,6 +27,7 @@ export async function readJson(filePath, fallback) {
 }
 
 export async function writeJson(filePath, data) {
+  if (isEphemeralRuntime()) return;
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
@@ -87,6 +93,18 @@ export async function fetchRssFeed(feedUrl) {
 }
 
 export async function syncJobsFromFeed(feedUrl, { XMLParser }) {
+  const data = await parseJobsFromFeed(feedUrl, { XMLParser });
+  const url = validateFeedUrl(feedUrl);
+
+  if (!isEphemeralRuntime()) {
+    await writeJobs(data);
+    await writeJobsConfig({ feedUrl: url, updatedAt: new Date().toISOString() });
+  }
+
+  return data;
+}
+
+export async function parseJobsFromFeed(feedUrl, { XMLParser }) {
   const url = validateFeedUrl(feedUrl);
   const xmlText = await fetchRssFeed(url);
 
@@ -112,9 +130,6 @@ export async function syncJobsFromFeed(feedUrl, { XMLParser }) {
   if (!data.jobs.length) {
     data.errors = ['No job items were found in the feed.'];
   }
-
-  await writeJobs(data);
-  await writeJobsConfig({ feedUrl: url, updatedAt: new Date().toISOString() });
 
   return data;
 }
