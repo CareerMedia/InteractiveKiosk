@@ -1257,6 +1257,8 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   font-size: 1.05rem;
   line-height: 1.6;
 }
+.jobs-empty.is-hidden,
+.jobs-no-results.is-hidden { display: none; }
 
 .jobs-grid {
   display: grid;

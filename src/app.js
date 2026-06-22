@@ -5,6 +5,7 @@ import { POPUP_CONFIG } from './config/popup.js';
 import { TIMING_CONFIG } from './config/timing.js';
 import { URL_CONFIG } from './config/urls.js';
 import { loadConfig } from './shared/config.js';
+import { apiUrl } from './shared/api-base.js';
 import { initJobsPage, loadJobsPage, getJobsPageElements } from './jobs-page.js';
 
 // ─── STATE ────────────────────────────────────────────────
@@ -22,6 +23,7 @@ const state = {
   mapUrlOverride: null,
   configVersion: 0,
   webLoadState: { website: 'idle', partners: 'idle' },
+  webHtmlCache: {},
 };
 
 // ─── ELEMENT CACHE ───────────────────────────────────────
@@ -202,9 +204,26 @@ function writeCache(dir, items) {
   } catch { /* ignore */ }
 }
 
+async function fetchLogosFromApi(dir) {
+  try {
+    const res = await fetch(await apiUrl(`/api/logos?dir=${encodeURIComponent(dir)}`), { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data.items) ? data.items : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchLogosFromGitHub(dir) {
   const cached = readCache(dir);
   if (cached) return cached;
+
+  const fromApi = await fetchLogosFromApi(dir);
+  if (fromApi?.length) {
+    writeCache(dir, fromApi);
+    return fromApi;
+  }
 
   const { owner, repo, branch } = getRepoContext();
   if (!owner || !repo) return [];
@@ -858,68 +877,45 @@ function setShellZoomForMap(active) {
   document.documentElement.classList.toggle('kiosk-map-active', Boolean(active));
 }
 
+async function prefetchWebContent(url) {
+  if (state.webHtmlCache[url]) return;
+  try {
+    const html = await fetchThroughProxy(url);
+    state.webHtmlCache[url] = rewriteHtmlForFraming(html, url);
+  } catch {
+    /* prefetch is best-effort */
+  }
+}
+
 async function loadIntoFrame({ url, frame, loadingEl, fallbackEl, stateKey }) {
   state.webLoadState[stateKey] = 'loading';
   if (loadingEl) loadingEl.classList.remove('is-hidden');
   if (fallbackEl) fallbackEl.classList.add('is-hidden');
   frame.classList.remove('is-hidden');
 
-  // Phase 1: try direct load. Many iframes fail silently due to XFO, so
-  // we race it against a timeout; if the timeout wins, fall back to proxy.
-  const directOk = await new Promise((resolve) => {
-    let done = false;
-    const timer = setTimeout(() => { if (!done) { done = true; resolve(false); } }, 3500);
-    const onLoad = () => {
-      if (done) return;
-      // If the iframe loaded but is actually the blank fallback (e.g. because
-      // the browser refused to frame), the contentWindow's location may be
-      // about:blank. We can't read cross-origin contents so just assume ok.
-      done = true; clearTimeout(timer); resolve(true);
-    };
-    const onError = () => {
-      if (done) return;
-      done = true; clearTimeout(timer); resolve(false);
-    };
-    frame.addEventListener('load', onLoad, { once: true });
-    frame.addEventListener('error', onError, { once: true });
-    try {
-      frame.removeAttribute('srcdoc');
-      frame.src = url;
-    } catch {
-      done = true; clearTimeout(timer); resolve(false);
-    }
-  });
+  const applySrcdoc = (html) => {
+    frame.removeAttribute('src');
+    frame.srcdoc = html;
+    if (loadingEl) loadingEl.classList.add('is-hidden');
+    state.webLoadState[stateKey] = 'ready';
+  };
 
-  // We can't actually trust onLoad (browsers still fire 'load' even when
-  // X-Frame-Options blocked rendering). So we always also try the proxy
-  // path once to guarantee something shows up.
+  if (state.webHtmlCache[url]) {
+    applySrcdoc(state.webHtmlCache[url]);
+    return;
+  }
+
   try {
     const html = await fetchThroughProxy(url);
     const rewritten = rewriteHtmlForFraming(html, url);
-    // Use srcdoc for guaranteed render. This replaces the direct src.
-    frame.removeAttribute('src');
-    frame.srcdoc = rewritten;
-
-    await new Promise((resolve) => {
-      const t = setTimeout(resolve, 4000);
-      frame.addEventListener('load', () => { clearTimeout(t); resolve(); }, { once: true });
-    });
-
-    if (loadingEl) loadingEl.classList.add('is-hidden');
-    state.webLoadState[stateKey] = 'ready';
+    state.webHtmlCache[url] = rewritten;
+    applySrcdoc(rewritten);
   } catch (err) {
     console.warn('[kiosk] proxy load failed', err);
-    if (directOk) {
-      // At least the direct load fired; keep it and hide spinner.
-      if (loadingEl) loadingEl.classList.add('is-hidden');
-      state.webLoadState[stateKey] = 'ready';
-    } else {
-      // Nothing worked → show QR fallback.
-      if (loadingEl) loadingEl.classList.add('is-hidden');
-      frame.classList.add('is-hidden');
-      if (fallbackEl) fallbackEl.classList.remove('is-hidden');
-      state.webLoadState[stateKey] = 'error';
-    }
+    if (loadingEl) loadingEl.classList.add('is-hidden');
+    frame.classList.add('is-hidden');
+    if (fallbackEl) fallbackEl.classList.remove('is-hidden');
+    state.webLoadState[stateKey] = 'error';
   }
 }
 
@@ -1189,6 +1185,8 @@ async function init() {
   bindEvents();
   await loadRuntimeConfig();
   loadLogos();
+  prefetchWebContent(URL_CONFIG.website);
+  prefetchWebContent(URL_CONFIG.partners);
   setView('home');
 }
 

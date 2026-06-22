@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { XMLParser } from 'fast-xml-parser';
@@ -25,6 +26,16 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, '..');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'career1';
+
+const LOGO_DIRS = new Set(['assets/employers/attendees', 'assets/employers/partners']);
+const LOGO_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'svg', 'webp', 'avif', 'gif']);
+
+function formatLogoName(filename) {
+  const base = filename.replace(/\.[^.]+$/, '');
+  return base
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 const emailRateLimit = new Map();
 const EMAIL_LIMIT_WINDOW_MS = 60_000;
@@ -80,6 +91,27 @@ export function createApp({ serveStatic = true } = {}) {
       hasBrevoApiKey: Boolean(process.env.BREVO_API_KEY),
       hasSenderEmail: Boolean(process.env.BREVO_SENDER_EMAIL),
     });
+  });
+
+  app.get('/api/logos', async (req, res) => {
+    const dir = String(req.query.dir || '').replace(/\\/g, '/').replace(/^\/+/, '');
+    if (!LOGO_DIRS.has(dir)) {
+      return res.status(400).json({ error: 'Invalid logo directory' });
+    }
+    try {
+      const names = await fs.readdir(path.join(ROOT, dir));
+      const items = names
+        .filter((name) => LOGO_EXTENSIONS.has((name.split('.').pop() || '').toLowerCase()))
+        .sort((a, b) => a.localeCompare(b))
+        .map((name) => ({
+          id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name: formatLogoName(name),
+          src: `/${dir}/${name}`,
+        }));
+      res.json({ items });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.get('/api/jobs', async (_req, res) => {

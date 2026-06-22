@@ -1,6 +1,6 @@
 export const LOGO_CONFIG = {
-  githubOwner: '',
-  githubRepo: '',
+  githubOwner: 'CareerMedia',
+  githubRepo: 'InteractiveKiosk',
   githubBranch: 'main',
   attendeeDir: 'assets/employers/attendees',
   partnerDir: 'assets/employers/partners',
