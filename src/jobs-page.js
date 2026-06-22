@@ -5,7 +5,19 @@
 import { loadJobs, sendJobListEmail } from './shared/jobs-loader.js';
 import { formatJobDate, getEmployerInitials, jobCardExcerpt, truncateWords } from './shared/jobs-parser.js';
 
-const PAGE_SIZE = 40;
+const PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
+const EXPIRING_SOON_DAYS = 14;
+
+const CHIP_DEFS = [
+  { id: 'internship', label: 'Internship' },
+  { id: 'part-time', label: 'Part-time' },
+  { id: 'full-time', label: 'Full-time' },
+  { id: 'paid', label: 'Paid' },
+  { id: 'expiring', label: 'Expiring soon' },
+];
+
+const JOB_TYPE_CHIPS = new Set(['internship', 'part-time', 'full-time']);
 
 const state = {
   allJobs: [],
@@ -13,9 +25,11 @@ const state = {
   loaded: false,
   loading: false,
   searchQuery: '',
-  activeSearch: '',
   sort: 'newest',
   page: 1,
+  viewMode: 'list',
+  activeChips: new Set(),
+  employerFilter: '',
   selected: new Set(),
   cartOpen: false,
   emailModalOpen: false,
@@ -24,6 +38,7 @@ const state = {
 
 let els = {};
 let onInteraction = () => {};
+let searchDebounce = null;
 
 export function initJobsPage(elements, interactionCb) {
   els = elements;
@@ -57,7 +72,6 @@ export async function loadJobsPage({ force = false } = {}) {
 function bindJobsEvents() {
   els.jobsSearchForm?.addEventListener('submit', (e) => {
     e.preventDefault();
-    state.activeSearch = state.searchQuery.trim();
     state.page = 1;
     renderJobsPage();
     onInteraction();
@@ -65,10 +79,29 @@ function bindJobsEvents() {
 
   els.jobsSearchInput?.addEventListener('input', (e) => {
     state.searchQuery = e.target.value;
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      state.page = 1;
+      renderJobsPage();
+      onInteraction();
+    }, SEARCH_DEBOUNCE_MS);
   });
 
   els.jobsSortSelect?.addEventListener('change', (e) => {
     state.sort = e.target.value;
+    state.page = 1;
+    renderJobsPage();
+    onInteraction();
+  });
+
+  els.jobsViewList?.addEventListener('click', () => setViewMode('list'));
+  els.jobsViewGrid?.addEventListener('click', () => setViewMode('grid'));
+
+  els.jobsClearFilters?.addEventListener('click', () => {
+    state.activeChips.clear();
+    state.employerFilter = '';
+    state.searchQuery = '';
+    if (els.jobsSearchInput) els.jobsSearchInput.value = '';
     state.page = 1;
     renderJobsPage();
     onInteraction();
@@ -114,12 +147,68 @@ function bindJobsEvents() {
   });
 }
 
+function setViewMode(mode) {
+  if (state.viewMode === mode) return;
+  state.viewMode = mode;
+  els.jobsViewList?.classList.toggle('jobs-view-btn--active', mode === 'list');
+  els.jobsViewGrid?.classList.toggle('jobs-view-btn--active', mode === 'grid');
+  els.jobsViewList?.setAttribute('aria-pressed', mode === 'list' ? 'true' : 'false');
+  els.jobsViewGrid?.setAttribute('aria-pressed', mode === 'grid' ? 'true' : 'false');
+  renderJobsPage();
+  onInteraction();
+}
+
+function matchesJobTypeChip(job, chipId) {
+  const hay = [
+    job.jobType, job.title, job.displayTitle, job.descriptionText,
+  ].join(' ').toLowerCase();
+  if (chipId === 'internship') return /\bintern/.test(hay);
+  if (chipId === 'part-time') return /part[-\s]?time/.test(hay);
+  if (chipId === 'full-time') return /full[-\s]?time/.test(hay);
+  return false;
+}
+
+function isPaidJob(job) {
+  return Boolean(String(job.payRange || '').trim());
+}
+
+function isExpiringSoon(job) {
+  if (!job.expiresAt) return false;
+  const exp = new Date(job.expiresAt);
+  if (Number.isNaN(exp.getTime())) return false;
+  const days = (exp - Date.now()) / (1000 * 60 * 60 * 24);
+  return days >= 0 && days <= EXPIRING_SOON_DAYS;
+}
+
+function matchesChip(job, chipId) {
+  if (chipId === 'paid') return isPaidJob(job);
+  if (chipId === 'expiring') return isExpiringSoon(job);
+  return matchesJobTypeChip(job, chipId);
+}
+
+function matchesChips(job) {
+  if (!state.activeChips.size) return true;
+
+  const activeTypes = [...state.activeChips].filter((id) => JOB_TYPE_CHIPS.has(id));
+  if (activeTypes.length && !activeTypes.some((id) => matchesChip(job, id))) return false;
+  if (state.activeChips.has('paid') && !matchesChip(job, 'paid')) return false;
+  if (state.activeChips.has('expiring') && !matchesChip(job, 'expiring')) return false;
+  return true;
+}
+
 function matchesSearch(job, q) {
   if (!q) return true;
+  const needle = q.toLowerCase();
   const hay = [
-    job.title, job.displayTitle, job.employer, job.descriptionText, job.summary,
+    job.title, job.displayTitle, job.employer, job.jobType,
+    job.location, job.payRange, job.descriptionText, job.summary,
   ].join(' ').toLowerCase();
-  return hay.includes(q.toLowerCase());
+  return hay.includes(needle);
+}
+
+function matchesEmployer(job) {
+  if (!state.employerFilter) return true;
+  return (job.employer || '').trim() === state.employerFilter;
 }
 
 function sortJobs(jobs) {
@@ -143,7 +232,28 @@ function sortJobs(jobs) {
 }
 
 function getFilteredJobs() {
-  return sortJobs(state.allJobs.filter((j) => matchesSearch(j, state.activeSearch)));
+  const q = state.searchQuery.trim();
+  return sortJobs(state.allJobs.filter((j) =>
+    matchesSearch(j, q) && matchesChips(j) && matchesEmployer(j),
+  ));
+}
+
+function getDistinctEmployers() {
+  const map = new Map();
+  for (const job of state.allJobs) {
+    const name = (job.employer || '').trim();
+    if (!name) continue;
+    map.set(name, (map.get(name) || 0) + 1);
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, count]) => ({ name, count }));
+}
+
+function hasActiveFilters() {
+  return state.activeChips.size > 0
+    || Boolean(state.employerFilter)
+    || Boolean(state.searchQuery.trim());
 }
 
 function getJobById(id) {
@@ -157,18 +267,18 @@ function avatarHtml(employer, size = 'md') {
 
 function showJobsSkeleton() {
   if (!els.jobsGrid) return;
-  els.jobsGrid.innerHTML = Array.from({ length: 8 }, () =>
-    '<div class="job-card job-card--skeleton" aria-hidden="true"><div class="job-card__skel-bar"></div><div class="job-card__skel-line job-card__skel-line--lg"></div><div class="job-card__skel-line"></div><div class="job-card__skel-line job-card__skel-line--sm"></div><div class="job-card__skel-block"></div></div>',
-  ).join('');
+  els.jobsGrid.className = `jobs-grid jobs-grid--${state.viewMode}`;
+  const skeleton = state.viewMode === 'list'
+    ? '<div class="job-list-row job-list-row--skeleton" aria-hidden="true"></div>'
+    : '<div class="job-card job-card--skeleton job-card--compact" aria-hidden="true"><div class="job-card__skel-bar"></div><div class="job-card__skel-line job-card__skel-line--lg"></div><div class="job-card__skel-line job-card__skel-line--sm"></div></div>';
+  els.jobsGrid.innerHTML = Array.from({ length: 6 }, () => skeleton).join('');
   if (els.jobsSummary) els.jobsSummary.textContent = 'Loading jobs…';
 }
 
 function cardMetaHtml(job) {
   const fields = [
     ['Pay range', job.payRange],
-    ['Schedule', job.schedule],
     ['Job type', job.jobType],
-    ['Location', job.location],
   ].filter(([, value]) => String(value || '').trim());
 
   if (!fields.length) return '';
@@ -176,7 +286,7 @@ function cardMetaHtml(job) {
   return `<div class="job-card__meta">${fields.map(([label, value]) => `
     <div class="job-card__meta-item">
       <span class="job-card__meta-label">${esc(label)}</span>
-      <span class="job-card__meta-value">${esc(truncateWords(value, 20))}</span>
+      <span class="job-card__meta-value">${esc(truncateWords(value, 12))}</span>
     </div>`).join('')}</div>`;
 }
 
@@ -184,12 +294,12 @@ function renderJobCard(job) {
   const selected = state.selected.has(job.id);
   const title = esc(job.title || job.displayTitle);
   const employer = esc(job.employer);
-  const posted = formatJobDate(job.pubDate);
-  const expires = formatJobDate(job.expiresAt);
-  const excerpt = esc(jobCardExcerpt(job));
+  const jobType = esc(truncateWords(job.jobType, 12));
+  const pay = esc(truncateWords(job.payRange, 12));
+  const meta = cardMetaHtml(job);
 
   return `
-    <article class="job-card${selected ? ' job-card--selected' : ''}" data-job-id="${esc(job.id)}">
+    <article class="job-card job-card--compact${selected ? ' job-card--selected' : ''}" data-job-id="${esc(job.id)}">
       <div class="job-card__accent" aria-hidden="true"></div>
       ${selected ? '<div class="job-card__check" aria-hidden="true">✓</div>' : ''}
       <div class="job-card__body">
@@ -200,16 +310,37 @@ function renderJobCard(job) {
             ${employer ? `<p class="job-card__employer">${employer}</p>` : ''}
           </div>
         </div>
-        <p class="job-card__date">Posted ${posted || '—'}</p>
-        <p class="job-card__expires">Expires ${expires || '—'}</p>
-        ${excerpt ? `<p class="job-card__excerpt">${excerpt}</p>` : ''}
-        ${cardMetaHtml(job)}
+        ${meta || ((jobType || pay) ? `<p class="job-card__quick-meta">${[jobType, pay].filter(Boolean).join(' · ')}</p>` : '')}
       </div>
       <div class="job-card__actions">
         <button type="button" class="job-card__list-btn${selected ? ' job-card__list-btn--added' : ''}" data-action="toggle" data-id="${esc(job.id)}">
-          ${selected ? 'Added to My List' : 'Add to My List'}
+          ${selected ? 'Added' : 'Add to List'}
         </button>
         <button type="button" class="job-card__more-btn" data-action="detail" data-id="${esc(job.id)}">View More</button>
+      </div>
+    </article>`;
+}
+
+function renderJobListRow(job) {
+  const selected = state.selected.has(job.id);
+  const title = esc(job.title || job.displayTitle);
+  const employer = esc(job.employer);
+  const jobType = esc(truncateWords(job.jobType, 8));
+  const pay = esc(truncateWords(job.payRange, 8));
+  const meta = [jobType, pay].filter((s) => s && s !== '—').join(' · ');
+
+  return `
+    <article class="job-list-row${selected ? ' job-list-row--selected' : ''}" data-job-id="${esc(job.id)}">
+      ${avatarHtml(job.employer, 'sm')}
+      <div class="job-list-row__main">
+        <h3 class="job-list-row__title">${title}</h3>
+        <p class="job-list-row__sub">${employer || '—'}${meta ? ` · ${meta}` : ''}</p>
+      </div>
+      <div class="job-list-row__actions">
+        <button type="button" class="job-list-row__btn${selected ? ' job-list-row__btn--added' : ''}" data-action="toggle" data-id="${esc(job.id)}">
+          ${selected ? 'Added' : '+ List'}
+        </button>
+        <button type="button" class="job-list-row__btn job-list-row__btn--primary" data-action="detail" data-id="${esc(job.id)}">Details</button>
       </div>
     </article>`;
 }
@@ -228,7 +359,80 @@ function formatDescriptionText(text) {
 
 function metaRow(label, value) {
   if (!value) return '';
-  return `<div class="jobs-detail__meta-row"><span class="jobs-detail__meta-label">${esc(label)}</span><span class="jobs-detail__meta-value">${esc(value)}</span></div>`;
+  return `<div class="jobs-detail__meta-row"><span class="jobs-detail__meta-label">${esc(label)}</span><span class="jobs-detail__meta-value">${esc(truncateWords(value, 12))}</span></div>`;
+}
+
+function renderFilterChips() {
+  if (!els.jobsFilterChips) return;
+  els.jobsFilterChips.innerHTML = CHIP_DEFS.map(({ id, label }) => {
+    const active = state.activeChips.has(id);
+    return `<button type="button" class="jobs-chip${active ? ' jobs-chip--active' : ''}" data-chip="${id}" aria-pressed="${active}">${label}</button>`;
+  }).join('');
+
+  els.jobsFilterChips.querySelectorAll('[data-chip]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.chip;
+      if (state.activeChips.has(id)) state.activeChips.delete(id);
+      else state.activeChips.add(id);
+      state.page = 1;
+      renderJobsPage();
+      onInteraction();
+    });
+  });
+}
+
+function renderEmployerStrip() {
+  if (!els.jobsEmployerStrip || !els.jobsEmployerWrap) return;
+  const employers = getDistinctEmployers();
+  els.jobsEmployerWrap.classList.toggle('is-hidden', employers.length < 2);
+
+  els.jobsEmployerStrip.innerHTML = employers.map(({ name, count }) => {
+    const active = state.employerFilter === name;
+    return `<button type="button" class="jobs-employer-pill${active ? ' jobs-employer-pill--active' : ''}" data-employer="${esc(name)}" aria-pressed="${active}">${esc(name)} <span class="jobs-employer-pill__count">${count}</span></button>`;
+  }).join('');
+
+  els.jobsEmployerStrip.querySelectorAll('[data-employer]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.employer;
+      state.employerFilter = state.employerFilter === name ? '' : name;
+      state.page = 1;
+      renderJobsPage();
+      onInteraction();
+    });
+  });
+}
+
+function renderActiveFilters() {
+  if (!els.jobsActiveFilters || !els.jobsActiveFiltersText) return;
+  const parts = [];
+  if (state.searchQuery.trim()) parts.push(`“${state.searchQuery.trim()}”`);
+  for (const id of state.activeChips) {
+    const def = CHIP_DEFS.find((c) => c.id === id);
+    if (def) parts.push(def.label);
+  }
+  if (state.employerFilter) parts.push(state.employerFilter);
+
+  const active = parts.length > 0;
+  els.jobsActiveFilters.classList.toggle('is-hidden', !active);
+  if (active) {
+    els.jobsActiveFiltersText.textContent = `Showing: ${parts.join(' · ')}`;
+  }
+}
+
+function bindJobActions(container) {
+  container?.querySelectorAll('[data-action="toggle"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleJob(btn.dataset.id);
+    });
+  });
+
+  container?.querySelectorAll('[data-action="detail"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openJobDetail(btn.dataset.id);
+    });
+  });
 }
 
 function renderPagination(totalPages) {
@@ -243,33 +447,16 @@ function renderPagination(totalPages) {
   const prevDisabled = state.page <= 1;
   const nextDisabled = state.page >= totalPages;
 
-  const pages = [];
-  for (let i = 1; i <= totalPages; i += 1) {
-    const near = Math.abs(i - state.page) <= 1;
-    const edge = i === 1 || i === totalPages;
-    if (near || edge || totalPages <= 7) {
-      pages.push(i);
-    } else if (pages[pages.length - 1] !== '…') {
-      pages.push('…');
-    }
-  }
-
-  const pageButtons = pages.map((p) => {
-    if (p === '…') return '<span class="jobs-page-ellipsis" aria-hidden="true">…</span>';
-    const active = p === state.page;
-    return `<button type="button" class="jobs-page-btn${active ? ' jobs-page-btn--active' : ''}" data-page="${p}"${active ? ' aria-current="page"' : ''}>${p}</button>`;
-  }).join('');
-
   els.jobsPagination.innerHTML = `
     <button type="button" class="jobs-page-nav" data-nav="prev"${prevDisabled ? ' disabled' : ''}>Previous</button>
-    <div class="jobs-page-numbers" role="navigation" aria-label="Job pages">${pageButtons}</div>
+    <span class="jobs-page-status">Page ${state.page} of ${totalPages}</span>
     <button type="button" class="jobs-page-nav" data-nav="next"${nextDisabled ? ' disabled' : ''}>Next</button>`;
 
   els.jobsPagination.querySelector('[data-nav="prev"]')?.addEventListener('click', () => {
     if (state.page > 1) {
       state.page -= 1;
       renderJobsPage();
-      els.jobsGrid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollToResults();
       onInteraction();
     }
   });
@@ -278,19 +465,14 @@ function renderPagination(totalPages) {
     if (state.page < totalPages) {
       state.page += 1;
       renderJobsPage();
-      els.jobsGrid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollToResults();
       onInteraction();
     }
   });
+}
 
-  els.jobsPagination.querySelectorAll('[data-page]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.page = Number(btn.dataset.page);
-      renderJobsPage();
-      els.jobsGrid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      onInteraction();
-    });
-  });
+function scrollToResults() {
+  els.jobsGrid?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function openJobDetail(jobId) {
@@ -320,7 +502,6 @@ function openJobDetail(jobId) {
         </div>
         <div class="jobs-detail__meta">
           ${metaRow('Pay range', job.payRange)}
-          ${metaRow('Schedule', job.schedule)}
           ${metaRow('Job type', job.jobType)}
           ${metaRow('Location', job.location)}
         </div>
@@ -355,9 +536,15 @@ function closeJobDetail() {
 function renderJobsPage() {
   if (!els.jobsGrid) return;
 
+  renderFilterChips();
+  renderEmployerStrip();
+  renderActiveFilters();
+
   if (state.detailJobId && !getJobById(state.detailJobId)) {
     closeJobDetail();
   }
+
+  els.jobsGrid.className = `jobs-grid jobs-grid--${state.viewMode}`;
 
   if (!state.allJobs.length) {
     els.jobsGrid.innerHTML = '';
@@ -385,29 +572,20 @@ function renderJobsPage() {
     els.jobsGrid.innerHTML = '';
     if (els.jobsNoResults) {
       els.jobsNoResults.classList.remove('is-hidden');
-      els.jobsNoResults.textContent = 'No jobs match your search. Try another keyword.';
+      els.jobsNoResults.textContent = hasActiveFilters()
+        ? 'No jobs match your filters. Try removing a filter or searching for something else.'
+        : 'No jobs match your search. Try another keyword.';
     }
   } else {
     if (els.jobsNoResults) els.jobsNoResults.classList.add('is-hidden');
-    els.jobsGrid.innerHTML = pageJobs.map(renderJobCard).join('');
-
-    els.jobsGrid.querySelectorAll('[data-action="toggle"]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleJob(btn.dataset.id);
-      });
-    });
-
-    els.jobsGrid.querySelectorAll('[data-action="detail"]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openJobDetail(btn.dataset.id);
-      });
-    });
+    const render = state.viewMode === 'list' ? renderJobListRow : renderJobCard;
+    els.jobsGrid.innerHTML = pageJobs.map(render).join('');
+    bindJobActions(els.jobsGrid);
   }
 
   if (els.jobsSummary) {
-    els.jobsSummary.innerHTML = `<span class="jobs-count">${filtered.length} job${filtered.length === 1 ? '' : 's'} found</span> · Page ${state.page} of ${totalPages}`;
+    const filterNote = hasActiveFilters() ? ' (filtered)' : '';
+    els.jobsSummary.innerHTML = `<span class="jobs-count">${filtered.length} job${filtered.length === 1 ? '' : 's'} found</span>${filterNote} · Page ${state.page} of ${totalPages}`;
   }
 
   renderPagination(totalPages);
@@ -531,6 +709,14 @@ export function getJobsPageElements() {
   return {
     jobsSearchForm: document.getElementById('jobs-search-form'),
     jobsSearchInput: document.getElementById('jobs-search-input'),
+    jobsFilterChips: document.getElementById('jobs-filter-chips'),
+    jobsEmployerWrap: document.getElementById('jobs-employer-wrap'),
+    jobsEmployerStrip: document.getElementById('jobs-employer-strip'),
+    jobsActiveFilters: document.getElementById('jobs-active-filters'),
+    jobsActiveFiltersText: document.getElementById('jobs-active-filters-text'),
+    jobsClearFilters: document.getElementById('jobs-clear-filters'),
+    jobsViewList: document.getElementById('jobs-view-list'),
+    jobsViewGrid: document.getElementById('jobs-view-grid'),
     jobsSortSelect: document.getElementById('jobs-sort-select'),
     jobsSummary: document.getElementById('jobs-summary'),
     jobsGrid: document.getElementById('jobs-grid'),

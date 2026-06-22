@@ -269,22 +269,36 @@ async function loadConfigFromRepo() {
 }
 
 async function commitConfig({ mapUrl, apiBaseUrl, bumpVersion = true, message }) {
-  const current = configState.data || {};
-  const next = {
-    ...current,
-    mapUrl: mapUrl ?? current.mapUrl ?? MAP_CONFIG.embedUrl,
-    apiBaseUrl: apiBaseUrl !== undefined ? String(apiBaseUrl || '').trim() : (current.apiBaseUrl || ''),
-    version: bumpVersion ? Number(current.version || 0) + 1 : Number(current.version || 0),
-    updatedAt: new Date().toISOString(),
+  const write = async () => {
+    const current = configState.data || {};
+    const next = {
+      ...current,
+      mapUrl: mapUrl ?? current.mapUrl ?? MAP_CONFIG.embedUrl,
+      apiBaseUrl: apiBaseUrl !== undefined ? String(apiBaseUrl || '').trim() : (current.apiBaseUrl || ''),
+      version: bumpVersion ? Number(current.version || 0) + 1 : Number(current.version || 0),
+      updatedAt: new Date().toISOString(),
+    };
+    const result = await putJsonFile(conn, {
+      path: CONFIG_PATH,
+      data: next,
+      message,
+      sha: configState.sha,
+    });
+    configState = { data: next, sha: result.content?.sha || null };
+    return next;
   };
-  const result = await putJsonFile(conn, {
-    path: CONFIG_PATH,
-    data: next,
-    message,
-    sha: configState.sha,
-  });
-  configState = { data: next, sha: result.content?.sha || null };
-  return next;
+
+  await loadConfigFromRepo();
+  try {
+    return await write();
+  } catch (err) {
+    // config.json changed on GitHub since we last read it (manual edit, another tab, etc.)
+    if (err.status === 409) {
+      await loadConfigFromRepo();
+      return await write();
+    }
+    throw err;
+  }
 }
 
 // ─── Map tab ────────────────────────────────────────────

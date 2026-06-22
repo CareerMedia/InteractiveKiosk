@@ -157,23 +157,40 @@
                 <form class="jobs-search-row" id="jobs-search-form" autocomplete="off">
                   <div class="jobs-search-wrap">
                     <svg class="jobs-search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                    <input type="search" id="jobs-search-input" class="jobs-search-input" placeholder="Search jobs" aria-label="Search jobs" />
+                    <input type="search" id="jobs-search-input" class="jobs-search-input" placeholder="Search by title, employer, or keyword…" aria-label="Search jobs" />
                   </div>
-                  <button type="submit" class="jobs-search-btn">Search</button>
                 </form>
+
+                <div class="jobs-filter-chips" id="jobs-filter-chips" role="group" aria-label="Filter jobs"></div>
+
+                <div class="jobs-employer-strip-wrap is-hidden" id="jobs-employer-wrap">
+                  <div class="jobs-employer-strip-label">Employers</div>
+                  <div class="jobs-employer-strip" id="jobs-employer-strip" role="listbox" aria-label="Filter by employer"></div>
+                </div>
+
+                <div class="jobs-active-filters is-hidden" id="jobs-active-filters">
+                  <span class="jobs-active-filters__text" id="jobs-active-filters-text"></span>
+                  <button type="button" class="jobs-clear-filters" id="jobs-clear-filters">Clear all</button>
+                </div>
 
                 <div class="jobs-toolbar">
                   <div class="jobs-summary" id="jobs-summary"><span class="jobs-count">Loading…</span></div>
-                  <label class="jobs-sort">
-                    <span class="jobs-sort__label">Sort by</span>
-                    <select id="jobs-sort-select" class="jobs-sort__select" aria-label="Sort jobs">
-                      <option value="newest">Newest first</option>
-                      <option value="oldest">Oldest first</option>
-                      <option value="expiring">Expiring soon</option>
-                      <option value="employer">Employer A-Z</option>
-                      <option value="title">Job title A-Z</option>
-                    </select>
-                  </label>
+                  <div class="jobs-toolbar__controls">
+                    <div class="jobs-view-toggle" role="group" aria-label="View mode">
+                      <button type="button" class="jobs-view-btn jobs-view-btn--active" id="jobs-view-list" aria-pressed="true">List</button>
+                      <button type="button" class="jobs-view-btn" id="jobs-view-grid" aria-pressed="false">Grid</button>
+                    </div>
+                    <label class="jobs-sort">
+                      <span class="jobs-sort__label">Sort by</span>
+                      <select id="jobs-sort-select" class="jobs-sort__select" aria-label="Sort jobs">
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="expiring">Expiring soon</option>
+                        <option value="employer">Employer A-Z</option>
+                        <option value="title">Job title A-Z</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
 
                 <p class="jobs-empty is-hidden" id="jobs-empty"></p>
