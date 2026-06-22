@@ -27,7 +27,7 @@ const state = {
   searchQuery: '',
   sort: 'newest',
   page: 1,
-  viewMode: 'list',
+  viewMode: 'grid',
   activeChips: new Set(),
   employerFilter: '',
   selected: new Set(),
@@ -270,7 +270,7 @@ function showJobsSkeleton() {
   els.jobsGrid.className = `jobs-grid jobs-grid--${state.viewMode}`;
   const skeleton = state.viewMode === 'list'
     ? '<div class="job-list-row job-list-row--skeleton" aria-hidden="true"></div>'
-    : '<div class="job-card job-card--skeleton job-card--compact" aria-hidden="true"><div class="job-card__skel-bar"></div><div class="job-card__skel-line job-card__skel-line--lg"></div><div class="job-card__skel-line job-card__skel-line--sm"></div></div>';
+    : '<div class="job-card job-card--skeleton" aria-hidden="true"><div class="job-card__skel-bar"></div><div class="job-card__skel-line job-card__skel-line--lg"></div><div class="job-card__skel-line"></div><div class="job-card__skel-line job-card__skel-line--sm"></div><div class="job-card__skel-block"></div></div>';
   els.jobsGrid.innerHTML = Array.from({ length: 6 }, () => skeleton).join('');
   if (els.jobsSummary) els.jobsSummary.textContent = 'Loading jobs…';
 }
@@ -294,12 +294,12 @@ function renderJobCard(job) {
   const selected = state.selected.has(job.id);
   const title = esc(job.title || job.displayTitle);
   const employer = esc(job.employer);
-  const jobType = esc(truncateWords(job.jobType, 12));
-  const pay = esc(truncateWords(job.payRange, 12));
-  const meta = cardMetaHtml(job);
+  const posted = formatJobDate(job.pubDate);
+  const expires = formatJobDate(job.expiresAt);
+  const excerpt = esc(jobCardExcerpt(job));
 
   return `
-    <article class="job-card job-card--compact${selected ? ' job-card--selected' : ''}" data-job-id="${esc(job.id)}">
+    <article class="job-card${selected ? ' job-card--selected' : ''}" data-job-id="${esc(job.id)}">
       <div class="job-card__accent" aria-hidden="true"></div>
       ${selected ? '<div class="job-card__check" aria-hidden="true">✓</div>' : ''}
       <div class="job-card__body">
@@ -310,11 +310,14 @@ function renderJobCard(job) {
             ${employer ? `<p class="job-card__employer">${employer}</p>` : ''}
           </div>
         </div>
-        ${meta || ((jobType || pay) ? `<p class="job-card__quick-meta">${[jobType, pay].filter(Boolean).join(' · ')}</p>` : '')}
+        <p class="job-card__date">Posted ${posted || '—'}</p>
+        <p class="job-card__expires">Expires ${expires || '—'}</p>
+        ${excerpt ? `<p class="job-card__excerpt">${excerpt}</p>` : ''}
+        ${cardMetaHtml(job)}
       </div>
       <div class="job-card__actions">
         <button type="button" class="job-card__list-btn${selected ? ' job-card__list-btn--added' : ''}" data-action="toggle" data-id="${esc(job.id)}">
-          ${selected ? 'Added' : 'Add to List'}
+          ${selected ? 'Added to My List' : 'Add to My List'}
         </button>
         <button type="button" class="job-card__more-btn" data-action="detail" data-id="${esc(job.id)}">View More</button>
       </div>
