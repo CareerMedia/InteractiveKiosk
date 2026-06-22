@@ -310,22 +310,20 @@ function renderPartnerRow() {
 // ─── PARTICIPATING EMPLOYERS — 3-column vertical marquee ──
 // Distributes logos round-robin across N columns. Each column uses two
 // `.ticker-column__chunk` wrappers so translateY(-50%) loops perfectly
-// (gap lives *inside* each chunk, not between duplicate halves).
+// (uniform card size + trailing chunk padding keeps spacing even at the seam).
 // Pointer-drag on a card pauses the column and “knocks” neighbours aside.
 // Three columns fits narrow / portrait kiosk layouts (e.g. 32" TV vertical).
 const TICKER_COLUMNS = 3;
-const TICKER_SIZES = ['ticker-card--lg', 'ticker-card--md', 'ticker-card--sm'];
 
 const tickerDrag = {
   active: null,
   raf: null,
 };
 
-function makeTickerCard(logo, index, colIndex) {
+function makeTickerCard(logo) {
   const card = document.createElement('div');
-  const sizeCls = TICKER_SIZES[index % TICKER_SIZES.length];
-  card.className = `ticker-card ${sizeCls}`;
-  card.style.setProperty('--card-shimmer-delay', `${(index % 9) * 1.15}s`);
+  card.className = 'ticker-card';
+  card.style.setProperty('--card-shimmer-delay', `${Math.random() * 8}s`);
 
   const logoWrap = document.createElement('div');
   logoWrap.className = 'ticker-card__logo';
@@ -344,8 +342,8 @@ function buildTickerChunk(logos, colIndex, ariaHidden) {
   const chunk = document.createElement('div');
   chunk.className = 'ticker-column__chunk';
   if (ariaHidden) chunk.setAttribute('aria-hidden', 'true');
-  logos.forEach((logo, i) => {
-    chunk.appendChild(makeTickerCard(logo, i, colIndex));
+  logos.forEach((logo) => {
+    chunk.appendChild(makeTickerCard(logo));
   });
   return chunk;
 }

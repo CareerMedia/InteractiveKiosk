@@ -163,9 +163,25 @@
 
                 <div class="jobs-filter-chips" id="jobs-filter-chips" role="group" aria-label="Filter jobs"></div>
 
-                <div class="jobs-employer-strip-wrap is-hidden" id="jobs-employer-wrap">
-                  <div class="jobs-employer-strip-label">Employers</div>
-                  <div class="jobs-employer-strip" id="jobs-employer-strip" role="listbox" aria-label="Filter by employer"></div>
+                <div class="jobs-employer-filter-wrap is-hidden" id="jobs-employer-wrap">
+                  <label class="jobs-employer-filter__label" for="jobs-employer-trigger">Employers</label>
+                  <div class="jobs-employer-ms" id="jobs-employer-ms">
+                    <button type="button" class="jobs-employer-ms__trigger" id="jobs-employer-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="jobs-employer-panel">
+                      <span class="jobs-employer-ms__value" id="jobs-employer-value">All employers</span>
+                      <svg class="jobs-employer-ms__chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="jobs-employer-ms__panel is-hidden" id="jobs-employer-panel" role="listbox" aria-multiselectable="true" aria-label="Filter by employer">
+                      <div class="jobs-employer-ms__search-wrap">
+                        <input type="search" class="jobs-employer-ms__search" id="jobs-employer-search" placeholder="Search employers…" aria-label="Search employers" autocomplete="off" />
+                      </div>
+                      <div class="jobs-employer-ms__actions">
+                        <button type="button" class="jobs-employer-ms__action" id="jobs-employer-select-all">Select visible</button>
+                        <button type="button" class="jobs-employer-ms__action" id="jobs-employer-clear-sel">Clear</button>
+                      </div>
+                      <div class="jobs-employer-ms__list" id="jobs-employer-list"></div>
+                      <p class="jobs-employer-ms__empty is-hidden" id="jobs-employer-empty">No employers match your search.</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="jobs-active-filters is-hidden" id="jobs-active-filters">

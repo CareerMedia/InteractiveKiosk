@@ -29,7 +29,9 @@ const state = {
   page: 1,
   viewMode: 'grid',
   activeChips: new Set(),
-  employerFilter: '',
+  employerFilters: new Set(),
+  employerDropdownOpen: false,
+  employerSearchQuery: '',
   selected: new Set(),
   cartOpen: false,
   emailModalOpen: false,
@@ -99,13 +101,18 @@ function bindJobsEvents() {
 
   els.jobsClearFilters?.addEventListener('click', () => {
     state.activeChips.clear();
-    state.employerFilter = '';
+    state.employerFilters.clear();
+    state.employerSearchQuery = '';
+    if (els.jobsEmployerSearch) els.jobsEmployerSearch.value = '';
+    closeEmployerDropdown();
     state.searchQuery = '';
     if (els.jobsSearchInput) els.jobsSearchInput.value = '';
     state.page = 1;
     renderJobsPage();
     onInteraction();
   });
+
+  bindEmployerFilterEvents();
 
   els.jobsCartToggle?.addEventListener('click', () => {
     state.cartOpen = !state.cartOpen;
@@ -142,7 +149,8 @@ function bindJobsEvents() {
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (state.emailModalOpen) closeEmailModal();
+    if (state.employerDropdownOpen) closeEmployerDropdown();
+    else if (state.emailModalOpen) closeEmailModal();
     else if (state.detailJobId) closeJobDetail();
   });
 }
@@ -207,8 +215,8 @@ function matchesSearch(job, q) {
 }
 
 function matchesEmployer(job) {
-  if (!state.employerFilter) return true;
-  return (job.employer || '').trim() === state.employerFilter;
+  if (!state.employerFilters.size) return true;
+  return state.employerFilters.has((job.employer || '').trim());
 }
 
 function sortJobs(jobs) {
@@ -252,7 +260,7 @@ function getDistinctEmployers() {
 
 function hasActiveFilters() {
   return state.activeChips.size > 0
-    || Boolean(state.employerFilter)
+    || state.employerFilters.size > 0
     || Boolean(state.searchQuery.trim());
 }
 
@@ -384,25 +392,129 @@ function renderFilterChips() {
   });
 }
 
-function renderEmployerStrip() {
-  if (!els.jobsEmployerStrip || !els.jobsEmployerWrap) return;
-  const employers = getDistinctEmployers();
-  els.jobsEmployerWrap.classList.toggle('is-hidden', employers.length < 2);
+function getEmployerFilterLabel() {
+  const count = state.employerFilters.size;
+  if (!count) return 'All employers';
+  if (count === 1) return [...state.employerFilters][0];
+  return `${count} employers selected`;
+}
 
-  els.jobsEmployerStrip.innerHTML = employers.map(({ name, count }) => {
-    const active = state.employerFilter === name;
-    return `<button type="button" class="jobs-employer-pill${active ? ' jobs-employer-pill--active' : ''}" data-employer="${esc(name)}" aria-pressed="${active}">${esc(name)} <span class="jobs-employer-pill__count">${count}</span></button>`;
+function getFilteredEmployerOptions() {
+  const q = state.employerSearchQuery.trim().toLowerCase();
+  const all = getDistinctEmployers();
+  if (!q) return all;
+  return all.filter(({ name }) => name.toLowerCase().includes(q));
+}
+
+let employerFilterEventsBound = false;
+
+function bindEmployerFilterEvents() {
+  if (employerFilterEventsBound) return;
+  employerFilterEventsBound = true;
+
+  els.jobsEmployerTrigger?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (state.employerDropdownOpen) closeEmployerDropdown();
+    else openEmployerDropdown();
+    onInteraction();
+  });
+
+  els.jobsEmployerSearch?.addEventListener('input', (e) => {
+    state.employerSearchQuery = e.target.value;
+    renderEmployerList();
+    onInteraction();
+  });
+
+  els.jobsEmployerSearch?.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+  });
+
+  els.jobsEmployerSelectAll?.addEventListener('click', (e) => {
+    e.preventDefault();
+    for (const { name } of getFilteredEmployerOptions()) {
+      state.employerFilters.add(name);
+    }
+    state.page = 1;
+    renderJobsPage();
+    onInteraction();
+  });
+
+  els.jobsEmployerClearSel?.addEventListener('click', (e) => {
+    e.preventDefault();
+    state.employerFilters.clear();
+    state.page = 1;
+    renderJobsPage();
+    onInteraction();
+  });
+
+  document.addEventListener('pointerdown', (e) => {
+    if (!state.employerDropdownOpen) return;
+    if (els.jobsEmployerMs?.contains(e.target)) return;
+    closeEmployerDropdown();
+  });
+}
+
+function openEmployerDropdown() {
+  state.employerDropdownOpen = true;
+  state.employerSearchQuery = '';
+  if (els.jobsEmployerSearch) els.jobsEmployerSearch.value = '';
+  els.jobsEmployerPanel?.classList.remove('is-hidden');
+  els.jobsEmployerTrigger?.setAttribute('aria-expanded', 'true');
+  renderEmployerList();
+  window.setTimeout(() => els.jobsEmployerSearch?.focus(), 0);
+}
+
+function closeEmployerDropdown() {
+  if (!state.employerDropdownOpen) return;
+  state.employerDropdownOpen = false;
+  state.employerSearchQuery = '';
+  if (els.jobsEmployerSearch) els.jobsEmployerSearch.value = '';
+  els.jobsEmployerPanel?.classList.add('is-hidden');
+  els.jobsEmployerTrigger?.setAttribute('aria-expanded', 'false');
+}
+
+function renderEmployerList() {
+  if (!els.jobsEmployerList) return;
+  const employers = getFilteredEmployerOptions();
+
+  els.jobsEmployerEmpty?.classList.toggle('is-hidden', employers.length > 0);
+
+  els.jobsEmployerList.innerHTML = employers.map(({ name, count }) => {
+    const checked = state.employerFilters.has(name);
+    return `
+      <label class="jobs-employer-ms__option${checked ? ' jobs-employer-ms__option--checked' : ''}">
+        <input type="checkbox" class="jobs-employer-ms__checkbox" data-employer="${esc(name)}" ${checked ? 'checked' : ''} />
+        <span class="jobs-employer-ms__name">${esc(name)}</span>
+        <span class="jobs-employer-ms__count">${count}</span>
+      </label>`;
   }).join('');
 
-  els.jobsEmployerStrip.querySelectorAll('[data-employer]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const name = btn.dataset.employer;
-      state.employerFilter = state.employerFilter === name ? '' : name;
+  els.jobsEmployerList.querySelectorAll('[data-employer]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const name = input.dataset.employer;
+      if (input.checked) state.employerFilters.add(name);
+      else state.employerFilters.delete(name);
       state.page = 1;
       renderJobsPage();
       onInteraction();
     });
   });
+}
+
+function renderEmployerFilter() {
+  if (!els.jobsEmployerWrap) return;
+  const employers = getDistinctEmployers();
+  els.jobsEmployerWrap.classList.toggle('is-hidden', employers.length < 2);
+
+  if (els.jobsEmployerValue) {
+    els.jobsEmployerValue.textContent = getEmployerFilterLabel();
+  }
+  els.jobsEmployerTrigger?.classList.toggle(
+    'jobs-employer-ms__trigger--active',
+    state.employerFilters.size > 0,
+  );
+
+  if (state.employerDropdownOpen) renderEmployerList();
 }
 
 function renderActiveFilters() {
@@ -413,7 +525,11 @@ function renderActiveFilters() {
     const def = CHIP_DEFS.find((c) => c.id === id);
     if (def) parts.push(def.label);
   }
-  if (state.employerFilter) parts.push(state.employerFilter);
+  if (state.employerFilters.size) {
+    const names = [...state.employerFilters].sort((a, b) => a.localeCompare(b));
+    if (names.length <= 2) parts.push(names.join(', '));
+    else parts.push(`${names.length} employers`);
+  }
 
   const active = parts.length > 0;
   els.jobsActiveFilters.classList.toggle('is-hidden', !active);
@@ -540,7 +656,7 @@ function renderJobsPage() {
   if (!els.jobsGrid) return;
 
   renderFilterChips();
-  renderEmployerStrip();
+  renderEmployerFilter();
   renderActiveFilters();
 
   if (state.detailJobId && !getJobById(state.detailJobId)) {
@@ -751,7 +867,15 @@ export function getJobsPageElements() {
     jobsSearchInput: document.getElementById('jobs-search-input'),
     jobsFilterChips: document.getElementById('jobs-filter-chips'),
     jobsEmployerWrap: document.getElementById('jobs-employer-wrap'),
-    jobsEmployerStrip: document.getElementById('jobs-employer-strip'),
+    jobsEmployerMs: document.getElementById('jobs-employer-ms'),
+    jobsEmployerTrigger: document.getElementById('jobs-employer-trigger'),
+    jobsEmployerValue: document.getElementById('jobs-employer-value'),
+    jobsEmployerPanel: document.getElementById('jobs-employer-panel'),
+    jobsEmployerSearch: document.getElementById('jobs-employer-search'),
+    jobsEmployerSelectAll: document.getElementById('jobs-employer-select-all'),
+    jobsEmployerClearSel: document.getElementById('jobs-employer-clear-sel'),
+    jobsEmployerList: document.getElementById('jobs-employer-list'),
+    jobsEmployerEmpty: document.getElementById('jobs-employer-empty'),
     jobsActiveFilters: document.getElementById('jobs-active-filters'),
     jobsActiveFiltersText: document.getElementById('jobs-active-filters-text'),
     jobsClearFilters: document.getElementById('jobs-clear-filters'),
