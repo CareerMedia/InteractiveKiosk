@@ -32,62 +32,47 @@
 /* ─── App shell on home ─────────────────────────────────────────────────── */
 .app[data-view="home"] {
   background: var(--kiosk-bg);
+  /* Hero provides branding — hide duplicate topbar so the stage grid fills correctly */
+  grid-template-rows: 1fr;
 }
 
 .app[data-view="home"] .topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: var(--sidebar-w);
-  z-index: 12;
-  background: transparent;
-  border-bottom: none;
-  box-shadow: none;
-  pointer-events: none;
+  display: none;
+}
+
+.app[data-view="home"] .stage {
   min-height: 0;
-  padding-top: 12px;
-}
-
-.app[data-view="home"] .topbar .brand-lockup,
-.app[data-view="home"] .topbar .topbar-headline {
-  visibility: hidden;
-  height: 0;
-  overflow: hidden;
-}
-
-.app[data-view="home"] .topbar-meta {
-  pointer-events: auto;
-  margin-left: auto;
-}
-
-.app[data-view="home"] .meta-pill,
-.app[data-view="home"] .countdown-chip {
-  background: var(--kiosk-glass-strong);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid var(--kiosk-border-light);
-  color: var(--kiosk-text-secondary);
-  box-shadow: var(--kiosk-shadow-glass);
+  height: 100%;
 }
 
 .app[data-view="home"] .stage-body {
   background: var(--kiosk-bg);
+  min-height: 0;
 }
 
 /* ─── Home scroll canvas ──────────────────────────────────────────────── */
 .view--home.is-active {
-  display: block !important;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
   min-height: 0;
   height: 100%;
-  scrollbar-width: thin;
 }
 
 .kiosk-home {
-  min-height: 100%;
-  padding: 0 0 24px;
-  padding-right: 8px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+
+.kiosk-hero,
+.kiosk-stats,
+.kiosk-partners-section {
+  flex-shrink: 0;
 }
 
 /* ─── Glass primitives ────────────────────────────────────────────────── */
@@ -109,7 +94,7 @@
 .kiosk-hero {
   position: relative;
   min-height: var(--kiosk-hero-height);
-  padding: 88px 48px 32px;
+  padding: 40px 48px 28px;
   overflow: hidden;
   isolation: isolate;
 }
@@ -419,6 +404,7 @@
 .kiosk-partners-section .partner-scroll-shell {
   padding: 16px 12px;
   margin: 0;
+  min-height: 96px;
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
           mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
 }
@@ -448,17 +434,20 @@
 
 /* ─── Participating employers wall ────────────────────────────────────── */
 .kiosk-attendees-section.attendees-section {
-  min-height: 380px;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 280px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 0 40px 120px;
+  padding: 0 40px 12px;
   gap: 12px;
 }
 
 .kiosk-attendees-section .logo-ticker-shell {
-  flex: 1;
-  min-height: 320px;
+  flex: 1 1 auto;
+  min-height: 240px;
+  height: auto;
+  overflow: hidden;
   border: 1px solid var(--kiosk-border-light);
   background:
     radial-gradient(900px 280px at 20% 0%, rgba(168, 120, 255, 0.08), transparent 55%),
@@ -466,6 +455,11 @@
     rgba(255, 255, 255, 0.45);
   border-radius: var(--kiosk-radius-panel);
   box-shadow: var(--kiosk-shadow-glass);
+}
+
+.kiosk-attendees-section .ticker-grid {
+  height: 100%;
+  min-height: 220px;
 }
 
 .kiosk-attendees-section .ticker-card {
@@ -557,6 +551,12 @@
 }
 
 /* ─── Bottom dock ─────────────────────────────────────────────────────── */
+.app[data-view="home"] .kiosk-dock.cta-bar {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  flex-shrink: 0;
+}
+
 .kiosk-dock.cta-bar {
   background: var(--kiosk-glass-strong);
   backdrop-filter: blur(28px) saturate(170%);
@@ -597,13 +597,12 @@
 
 /* ─── Portrait kiosk tuning ───────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .kiosk-hero { padding: 80px 28px 24px; }
+  .kiosk-hero { padding: 32px 28px 24px; }
   .kiosk-stats { margin-left: 20px; margin-right: 20px; }
   .kiosk-section { padding-left: 20px; padding-right: 20px; }
   .kiosk-attendees-section.attendees-section { padding-left: 20px; padding-right: 20px; }
 }
 
 @media (max-width: 700px) {
-  .app[data-view="home"] .topbar { right: 0; }
   .kiosk-hero__toprow { flex-direction: column; align-items: flex-start; }
 }

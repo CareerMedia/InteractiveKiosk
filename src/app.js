@@ -29,6 +29,8 @@ const state = {
   webLoadState: { website: 'idle', partners: 'idle' },
   webHtmlCache: {},
   clockTimer: null,
+  clockSyncTimer: null,
+  clockOffsetMs: 0,
 };
 
 // ─── ELEMENT CACHE ───────────────────────────────────────
@@ -248,18 +250,52 @@ async function updateHomeStats() {
   }
 }
 
+function getKioskNow() {
+  return new Date(Date.now() + (state.clockOffsetMs || 0));
+}
+
+async function syncClockOffset() {
+  const tz = TIMING_CONFIG.kioskTimezone || 'America/Los_Angeles';
+  try {
+    const res = await fetch(`https://worldtimeapi.org/api/timezone/${encodeURIComponent(tz)}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const networkMs = new Date(data.datetime).getTime();
+    if (Number.isFinite(networkMs)) {
+      state.clockOffsetMs = networkMs - Date.now();
+    }
+  } catch {
+    state.clockOffsetMs = 0;
+  }
+}
+
 function updateClock() {
   if (!els.kioskClock) return;
-  const now = new Date();
-  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  const date = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const tz = TIMING_CONFIG.kioskTimezone || 'America/Los_Angeles';
+  const now = getKioskNow();
+  const time = now.toLocaleTimeString('en-US', {
+    timeZone: tz,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const date = now.toLocaleDateString('en-US', {
+    timeZone: tz,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
   els.kioskClock.textContent = `${time} · ${date}`;
 }
 
-function startClock() {
+async function startClock() {
+  await syncClockOffset();
   updateClock();
   if (state.clockTimer) clearInterval(state.clockTimer);
+  if (state.clockSyncTimer) clearInterval(state.clockSyncTimer);
   state.clockTimer = setInterval(updateClock, 30_000);
+  state.clockSyncTimer = setInterval(syncClockOffset, TIMING_CONFIG.clockSyncIntervalMs || 3_600_000);
 }
 
 function getMapUrl() {
@@ -300,12 +336,13 @@ function readCache(dir) {
     const raw = localStorage.getItem(getCacheKey(dir));
     if (!raw) return null;
     const p = JSON.parse(raw);
-    if (!p.expiresAt || Date.now() > p.expiresAt || !Array.isArray(p.items)) return null;
+    if (!p.expiresAt || Date.now() > p.expiresAt || !Array.isArray(p.items) || !p.items.length) return null;
     return p.items;
   } catch { return null; }
 }
 
 function writeCache(dir, items) {
+  if (!items?.length) return;
   try {
     localStorage.setItem(getCacheKey(dir), JSON.stringify({
       expiresAt: Date.now() + TIMING_CONFIG.logoCacheTtlMs,
@@ -1255,7 +1292,13 @@ function bindEvents() {
 // ─── LOAD LOGOS ──────────────────────────────────────────
 // Every kiosk reads the same logos directly from the repo. The /admin
 // dashboard commits changes to the repo so updates land everywhere at once.
-async function loadLogos() {
+async function loadLogos({ forceRefresh = false } = {}) {
+  if (forceRefresh) {
+    try {
+      localStorage.removeItem(getCacheKey(LOGO_CONFIG.attendeeDir));
+      localStorage.removeItem(getCacheKey(LOGO_CONFIG.partnerDir));
+    } catch { /* ignore */ }
+  }
   try {
     const [attendee, partner] = await Promise.all([
       fetchLogosFromGitHub(LOGO_CONFIG.attendeeDir),
@@ -1267,6 +1310,10 @@ async function loadLogos() {
     console.error('Logo load error', err);
     state.attendeeLogos = [];
     state.partnerLogos  = [];
+  }
+  if (!state.attendeeLogos.length && !state.partnerLogos.length && !forceRefresh) {
+    await loadLogos({ forceRefresh: true });
+    return;
   }
   buildTicker();
   renderPartnerRow();
@@ -1303,7 +1350,7 @@ async function init() {
   });
   bindEvents();
   await loadRuntimeConfig();
-  startClock();
+  await startClock();
   await loadLogos();
   prefetchWebContent(URL_CONFIG.website);
   prefetchWebContent(URL_CONFIG.partners);

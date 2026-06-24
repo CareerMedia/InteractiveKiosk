@@ -11,4 +11,8 @@ export const TIMING_CONFIG = {
   idleAdDelayMs: 180_000,
   idleAdImageSlideMs: 10_000,
   idleAdTestPollMs: 15_000,
+  /** IANA timezone for kiosk clock display (CSUN / Los Angeles). */
+  kioskTimezone: 'America/Los_Angeles',
+  /** Re-sync network time periodically (kiosk hardware clocks often drift). */
+  clockSyncIntervalMs: 60 * 60 * 1000,
 };
