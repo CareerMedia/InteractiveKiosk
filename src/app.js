@@ -1183,8 +1183,13 @@ function parseCheckInEmbed(embedHtml) {
 function normalizeCheckInUrl(url) {
   try {
     const u = new URL(url, window.location.href);
-    if (u.hostname === 'forms.monday.com' || u.hostname.endsWith('.monday.com')) {
-      if (!u.searchParams.has('embed')) u.searchParams.set('embed', 'true');
+    const host = u.hostname.toLowerCase();
+    // Monday's standalone share link (/forms/TOKEN) is the full-page form and
+    // refuses to be embedded (ERR_BLOCKED_BY_RESPONSE / X-Frame-Options). The
+    // /forms/embed/TOKEN variant is purpose-built to be iframed and still
+    // submits normally. Convert share links to the embeddable form.
+    if (host === 'forms.monday.com' || host.endsWith('.monday.com')) {
+      u.pathname = u.pathname.replace(/^\/forms\/(?!embed(?:\/|$))/, '/forms/embed/');
     }
     return u.toString();
   } catch {
@@ -1192,11 +1197,20 @@ function normalizeCheckInUrl(url) {
   }
 }
 
+// If a Monday embed snippet was pasted with the standalone share URL, rewrite
+// its iframe src to the embeddable variant so it frames on the kiosk too.
+function normalizeEmbedHtml(html) {
+  return String(html || '').replace(
+    /(<iframe[^>]*\ssrc=["'])([^"']+)(["'])/i,
+    (_m, pre, src, post) => `${pre}${normalizeCheckInUrl(src)}${post}`,
+  );
+}
+
 function resolveCheckInTarget() {
   const { mode, url, embed } = state.checkIn;
   if (mode === 'embed' && embed && embed.trim()) {
     const parsed = parseCheckInEmbed(embed);
-    return { url: '', rawHtml: parsed.rawHtml };
+    return { url: '', rawHtml: normalizeEmbedHtml(parsed.rawHtml) };
   }
   if (url && url.trim()) {
     return { url: normalizeCheckInUrl(url.trim()), rawHtml: '' };
