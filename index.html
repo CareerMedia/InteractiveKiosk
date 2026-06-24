@@ -16,24 +16,51 @@
     <div class="app" id="app" data-view="home">
 
       <!-- ══════════════════════════════════════
-           HEADER (always visible)
+           HEADER — NeoGlass floating shell (hidden on home)
       ═══════════════════════════════════════ -->
-      <header class="topbar">
-        <div class="brand-lockup">
-          <img src="./assets/branding/csun-career-center-logo.png" alt="CSUN Career Center" class="brand-logo" />
-          <div class="topbar-headline">
-            <div class="topbar-title">Welcome to the <span id="event-label-pill">Career Fair</span>!</div>
-            <div class="topbar-subtitle">Find your next opportunity</div>
+      <header class="topbar kiosk-header" id="kiosk-header">
+        <div class="kiosk-header__zone kiosk-header__zone--left">
+          <div class="kiosk-header__logos" aria-label="CSUN Career Center">
+            <img
+              src="./assets/branding/csun-career-center-logo.png"
+              alt="CSUN Career Center"
+              class="kiosk-header__logo"
+              width="220"
+              height="40"
+            />
           </div>
         </div>
-        <div class="topbar-meta">
-          <div class="countdown-chip is-hidden" id="countdown-pill" aria-live="polite">Home in 90s</div>
-          <div class="meta-pill" id="event-date">Spring 2025</div>
-          <button class="topbar-home-btn" id="topbar-home-btn" type="button" aria-label="Back to home">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+
+        <div class="kiosk-header__zone kiosk-header__zone--center">
+          <p class="kiosk-header__title" id="header-page-title">Job Opportunities</p>
+          <p class="kiosk-header__subtitle" id="header-page-subtitle">Find your next opportunity</p>
+        </div>
+
+        <div class="kiosk-header__zone kiosk-header__zone--right topbar-meta kiosk-header__actions">
+          <div class="kiosk-header__countdown countdown-chip is-hidden" id="countdown-pill" aria-live="polite">
+            <span class="kiosk-header__countdown-ring-wrap" aria-hidden="true">
+              <svg class="kiosk-header__countdown-ring" viewBox="0 0 44 44" width="44" height="44">
+                <circle class="kiosk-header__countdown-ring-track" cx="22" cy="22" r="18" fill="none" stroke-width="3" />
+                <circle class="kiosk-header__countdown-ring-progress" id="countdown-ring-progress" cx="22" cy="22" r="18" fill="none" stroke-width="3" stroke-linecap="round" transform="rotate(-90 22 22)" />
+              </svg>
+              <svg class="kiosk-header__countdown-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+              </svg>
+            </span>
+            <span class="kiosk-header__countdown-label" id="countdown-pill-label">Home in 90s</span>
+          </div>
+
+          <div class="kiosk-header__event-chip meta-pill" id="event-date">
+            <span class="kiosk-header__event-chip-icon" aria-hidden="true">✦</span>
+            <span id="event-date-label">CSUN Career Fair</span>
+          </div>
+
+          <button class="kiosk-header__chip-btn topbar-home-btn" id="topbar-home-btn" type="button" aria-label="Back to home">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
             <span>Home</span>
           </button>
-          <button class="topbar-mobile-map-btn" id="topbar-mobile-map-btn" type="button" aria-haspopup="dialog" aria-controls="mobile-map-popup">
+
+          <button class="kiosk-header__chip-btn kiosk-header__chip-btn--outline topbar-mobile-map-btn" id="topbar-mobile-map-btn" type="button" aria-haspopup="dialog" aria-controls="mobile-map-popup">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
             <span>Mobile Map</span>
           </button>

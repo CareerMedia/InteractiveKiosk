@@ -1,5 +1,5 @@
 import { BRANDING_CONFIG } from './config/branding.js';
-import { EVENT_CONFIG } from './config/event.js';
+import { EVENT_CONFIG, HEADER_PAGE_CONTEXT } from './config/event.js';
 import { LOGO_CONFIG } from './config/logos.js';
 import { MAP_CONFIG } from './config/map.js';
 import { POPUP_CONFIG } from './config/popup.js';
@@ -38,8 +38,13 @@ const els = {
   app:                document.getElementById('app'),
   eventLabelPill:     document.getElementById('event-label-pill'),
   eventDate:          document.getElementById('event-date'),
+  eventDateLabel:     document.getElementById('event-date-label'),
+  headerPageTitle:    document.getElementById('header-page-title'),
+  headerPageSubtitle: document.getElementById('header-page-subtitle'),
   ctaText:            document.getElementById('cta-text'),
   countdownPill:      document.getElementById('countdown-pill'),
+  countdownPillLabel:   document.getElementById('countdown-pill-label'),
+  countdownRingProgress: document.getElementById('countdown-ring-progress'),
   ctaBar:             document.getElementById('cta-bar'),
   ctaLabel:           document.getElementById('cta-label'),
 
@@ -145,7 +150,8 @@ const VIEWS = {
 // ─── STATIC COPY ─────────────────────────────────────────
 function applyCopy() {
   if (els.eventLabelPill) els.eventLabelPill.textContent = EVENT_CONFIG.label;
-  if (els.eventDate)      els.eventDate.textContent      = EVENT_CONFIG.date;
+  if (els.eventDateLabel) els.eventDateLabel.textContent = EVENT_CONFIG.date;
+  else if (els.eventDate) els.eventDate.textContent      = EVENT_CONFIG.date;
   if (els.ctaLabel)       els.ctaLabel.textContent       = EVENT_CONFIG.ctaLabel;
   if (els.ctaText)        els.ctaText.textContent        = EVENT_CONFIG.ctaText;
   if (els.kioskHeroEyebrow)  els.kioskHeroEyebrow.textContent  = EVENT_CONFIG.heroEyebrow || EVENT_CONFIG.date;
@@ -170,6 +176,18 @@ function applyCopy() {
   if (els.partnersUrl) els.partnersUrl.textContent = URL_CONFIG.partners;
   if (els.webFallbackUrl)      els.webFallbackUrl.textContent      = URL_CONFIG.website;
   if (els.partnersFallbackUrl) els.partnersFallbackUrl.textContent = URL_CONFIG.partners;
+}
+
+const COUNTDOWN_RING_CIRCUMFERENCE = 2 * Math.PI * 18;
+
+function updateHeaderContext(viewId) {
+  const ctx = HEADER_PAGE_CONTEXT[viewId];
+  if (!ctx) return;
+  if (els.headerPageTitle) els.headerPageTitle.textContent = ctx.title;
+  if (els.headerPageSubtitle) {
+    els.headerPageSubtitle.textContent = ctx.subtitle;
+    els.headerPageSubtitle.classList.toggle('is-hidden', !ctx.subtitle);
+  }
 }
 
 // ─── HELPERS ─────────────────────────────────────────────
@@ -1130,6 +1148,7 @@ function setView(viewId) {
 
   els.app.dataset.view = viewId;
   state.activeView = viewId;
+  updateHeaderContext(viewId);
 
   if (viewId !== 'map') closeMobileMapModal();
 
@@ -1194,8 +1213,22 @@ function clearInactivityTimers() {
 }
 
 function updateCountdownDisplay(expiresAt) {
-  const s = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-  if (els.countdownPill) els.countdownPill.textContent = `Home in ${s}s`;
+  const msLeft = expiresAt - Date.now();
+  const s = Math.max(0, Math.ceil(msLeft / 1000));
+  const totalS = TIMING_CONFIG.inactivityTimeoutMs / 1000;
+  const progress = Math.min(1, Math.max(0, s / totalS));
+
+  if (els.countdownPillLabel) els.countdownPillLabel.textContent = `Home in ${s}s`;
+  else if (els.countdownPill) els.countdownPill.textContent = `Home in ${s}s`;
+
+  if (els.countdownRingProgress) {
+    els.countdownRingProgress.style.strokeDasharray = `${COUNTDOWN_RING_CIRCUMFERENCE}`;
+    els.countdownRingProgress.style.strokeDashoffset = `${COUNTDOWN_RING_CIRCUMFERENCE * (1 - progress)}`;
+  }
+
+  if (els.countdownPill) {
+    els.countdownPill.classList.toggle('kiosk-header__countdown--warning', s > 0 && s <= 10);
+  }
 }
 
 function resetInactivityTimer() {

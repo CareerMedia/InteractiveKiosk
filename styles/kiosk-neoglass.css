@@ -34,6 +34,16 @@
   --kiosk-content-pad-x: 40px;
   --kiosk-nav-min-height: min(1440px, calc(100dvh - 96px));
   --kiosk-blur-heavy: blur(44px) saturate(185%);
+  --kiosk-header-float-top: 20px;
+  --kiosk-header-float-x: 24px;
+  --kiosk-header-h: 84px;
+  --kiosk-header-gap: 16px;
+  --kiosk-header-offset: calc(var(--kiosk-header-float-top) + var(--kiosk-header-h) + var(--kiosk-header-gap));
+  --header-glass-bg: rgba(255, 255, 255, 0.72);
+  --header-glass-strong: rgba(255, 255, 255, 0.88);
+  --header-border: rgba(255, 255, 255, 0.78);
+  --header-inner-border: rgba(15, 23, 42, 0.08);
+  --header-radius: 28px;
 }
 
 /* ─── App shell on home ─────────────────────────────────────────────────── */
@@ -59,9 +69,316 @@
   grid-template-rows: 1fr;
 }
 
-.app:not([data-view="map"]) .topbar {
-  padding-right: calc(16px + var(--kiosk-nav-reserve));
+/* Non-home views: floating header + content offset */
+.app:not([data-view="home"]) {
+  grid-template-rows: 1fr;
+  --topbar-h: var(--kiosk-header-offset);
+}
+
+.app:not([data-view="home"]) .stage-body {
+  padding-top: var(--kiosk-header-offset);
   box-sizing: border-box;
+}
+
+.app:not([data-view="home"]) .topbar.kiosk-header {
+  position: fixed;
+  top: var(--kiosk-header-float-top);
+  left: var(--kiosk-header-float-x);
+  right: var(--kiosk-nav-reserve);
+  z-index: 210;
+  min-height: var(--kiosk-header-h);
+  margin: 0;
+  padding: 16px 20px;
+  gap: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  background: var(--header-glass-bg);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--header-border);
+  border-radius: var(--header-radius);
+  border-bottom: 1px solid var(--header-border);
+  box-shadow:
+    0 18px 60px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: box-shadow 200ms ease-out, background 200ms ease-out;
+}
+
+.app:not([data-view="home"]) .topbar.kiosk-header::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(215, 25, 32, 0.35), transparent);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* ─── Kiosk header zones ─────────────────────────────────────────────── */
+.kiosk-header__zone {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.kiosk-header__zone--left {
+  flex-shrink: 0;
+}
+
+.kiosk-header__zone--center {
+  flex: 1 1 200px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.kiosk-header__zone--right,
+.kiosk-header__actions {
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.kiosk-header__logos {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.kiosk-header__logo {
+  height: 38px;
+  width: auto;
+  max-width: min(240px, 34vw);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.kiosk-header__logo-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(15, 23, 42, 0.12);
+  flex-shrink: 0;
+}
+
+.kiosk-header__title {
+  margin: 0;
+  font-family: 'Barlow', sans-serif;
+  font-size: clamp(1.25rem, 2.2vw, 1.625rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--kiosk-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.kiosk-header__subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.kiosk-header__subtitle.is-hidden {
+  display: none;
+}
+
+/* Countdown chip — informational (not clickable) */
+.kiosk-header__countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 18px 0 12px;
+  border-radius: var(--kiosk-radius-pill);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--header-inner-border);
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--kiosk-text-secondary);
+  transition: background 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.kiosk-header__countdown--warning {
+  background: rgba(215, 25, 32, 0.08);
+  border-color: rgba(215, 25, 32, 0.18);
+  color: var(--csun-red-deep);
+}
+
+.kiosk-header__countdown-ring-wrap {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.kiosk-header__countdown-ring {
+  display: block;
+}
+
+.kiosk-header__countdown-ring-track {
+  stroke: rgba(15, 23, 42, 0.12);
+}
+
+.kiosk-header__countdown-ring-progress {
+  stroke: var(--csun-red);
+  transition: stroke-dashoffset 1s linear;
+}
+
+.kiosk-header__countdown--warning .kiosk-header__countdown-ring-progress {
+  stroke: var(--csun-red-bright);
+}
+
+.kiosk-header__countdown-icon {
+  position: absolute;
+  color: var(--kiosk-text-muted);
+}
+
+.kiosk-header__countdown--warning .kiosk-header__countdown-icon {
+  color: var(--csun-red);
+}
+
+.kiosk-header__countdown-label {
+  white-space: nowrap;
+}
+
+/* CSUN Career Fair chip — informational */
+.kiosk-header__event-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 24px;
+  border-radius: var(--kiosk-radius-pill);
+  background: linear-gradient(180deg, #ff5a6a 0%, var(--csun-red) 100%);
+  color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: var(--kiosk-shadow-red);
+  white-space: nowrap;
+}
+
+.kiosk-header__event-chip-icon {
+  font-size: 0.75rem;
+  opacity: 0.92;
+}
+
+/* Map-view header action chips */
+.kiosk-header__chip-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 20px;
+  border-radius: var(--kiosk-radius-pill);
+  border: none;
+  background: linear-gradient(180deg, #ff5a6a 0%, var(--csun-red) 100%);
+  color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: var(--kiosk-shadow-red);
+  cursor: pointer;
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out, background 180ms ease-out;
+}
+
+.kiosk-header__chip-btn:hover {
+  transform: translateY(-1px);
+}
+
+.kiosk-header__chip-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 10px 28px rgba(215, 25, 32, 0.22);
+}
+
+.kiosk-header__chip-btn:focus-visible {
+  outline: 3px solid rgba(215, 25, 32, 0.25);
+  outline-offset: 3px;
+}
+
+.kiosk-header__chip-btn--outline {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--csun-red);
+  border: 1px solid rgba(215, 25, 32, 0.22);
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.kiosk-header__chip-btn--outline:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.app[data-view="map"] .kiosk-header__chip-btn.topbar-home-btn,
+.app[data-view="map"] .kiosk-header__chip-btn.topbar-mobile-map-btn {
+  display: inline-flex;
+}
+
+.app[data-view="map"] .kiosk-header__event-chip,
+.app[data-view="map"] #event-date {
+  display: none;
+}
+
+.app[data-view="map"] .kiosk-header__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .kiosk-header__zone--center {
+    order: 3;
+    flex: 1 1 100%;
+    padding: 4px 0 0;
+  }
+
+  .app:not([data-view="home"]) .topbar.kiosk-header {
+    row-gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .kiosk-header__subtitle {
+    display: none;
+  }
+
+  .kiosk-header__event-chip {
+    padding: 0 16px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-header__countdown-ring-progress,
+  .kiosk-header__chip-btn,
+  .app:not([data-view="home"]) .topbar.kiosk-header {
+    transition: none;
+  }
 }
 
 .app[data-view="home"] .stage-body {
@@ -1224,6 +1541,7 @@
   :root {
     --kiosk-content-pad-x: 24px;
     --kiosk-nav-reserve: calc(var(--kiosk-nav-w) + 18px);
+    --kiosk-header-float-x: 14px;
   }
   .kiosk-hero { padding-left: var(--kiosk-content-pad-x); padding-right: var(--kiosk-content-pad-x); }
   .kiosk-dock.cta-bar {
