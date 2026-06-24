@@ -130,6 +130,10 @@ export function createApp({ serveStatic = true } = {}) {
         }));
       res.json({ items });
     } catch (err) {
+      // Vercel API bundles JSON only — logos are served from GitHub Pages / static assets.
+      if (err.code === 'ENOENT') {
+        return res.json({ items: [] });
+      }
       res.status(500).json({ error: err.message });
     }
   });

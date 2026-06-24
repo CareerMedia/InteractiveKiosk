@@ -1,11 +1,13 @@
 {
+  "installCommand": "npm install --omit=dev",
   "rewrites": [
     { "source": "/api", "destination": "/api" },
     { "source": "/api/(.*)", "destination": "/api" }
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "data/**,assets/employers/**,assets/ads/**",
+      "includeFiles": "data/jobs.json,data/jobs-config.json,data/kiosk-ads.json",
+      "excludeFiles": "{assets/**,admin/**,mobile/**,styles/**,index.html,electron/**}",
       "maxDuration": 60
     }
   }

@@ -1,0 +1,5 @@
+# Local install only — never committed; listed in case of manual uploads.
+node_modules/
+
+# Electron kiosk shell — not used on Vercel (devDependency binary lives in node_modules).
+electron/
