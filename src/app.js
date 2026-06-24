@@ -5,9 +5,9 @@ import { MAP_CONFIG } from './config/map.js';
 import { POPUP_CONFIG } from './config/popup.js';
 import { TIMING_CONFIG } from './config/timing.js';
 import { URL_CONFIG } from './config/urls.js';
-import { loadConfig } from './shared/config.js';
+import { loadConfig, buildMapUrl } from './shared/config.js';
 import { loadJobs } from './shared/jobs-loader.js';
-import { apiUrl } from './shared/api-base.js';
+import { apiUrl, resolveApiBase } from './shared/api-base.js';
 import { initJobsPage, loadJobsPage, getJobsPageElements, resetJobsSession } from './jobs-page.js';
 import { initIdleAdPlayer } from './idle-ad-player.js';
 
@@ -111,6 +111,10 @@ const els = {
   instagramHeadline:  document.getElementById('instagram-headline'),
   instagramHandle:    document.getElementById('instagram-handle'),
   instagramBody:      document.getElementById('instagram-body'),
+  instagramCtaLabel:  document.getElementById('instagram-cta-label'),
+  instagramQrImage:   document.getElementById('instagram-qr-image'),
+  instagramQrFallback: document.getElementById('instagram-qr-fallback'),
+  instagramChips:     document.getElementById('instagram-chips'),
 
   // Mobile map QR (map view header)
   mobileMapPopup:     document.getElementById('mobile-map-popup'),
@@ -148,11 +152,19 @@ function applyCopy() {
   if (els.kioskHeroDesc)     els.kioskHeroDesc.textContent     = EVENT_CONFIG.heroDescription;
   if (els.kioskHeroCtaLabel) els.kioskHeroCtaLabel.textContent = EVENT_CONFIG.heroCta;
   if (els.startButton)       els.startButton.textContent       = `${EVENT_CONFIG.ctaButton} →`;
-  if (els.instagramKicker)   els.instagramKicker.textContent   = POPUP_CONFIG.kicker;
+  const kickerText = els.instagramKicker?.querySelector('.follow-modal__pill-text');
+  if (kickerText) kickerText.textContent = POPUP_CONFIG.kicker;
   if (els.instagramTitle)    els.instagramTitle.textContent    = POPUP_CONFIG.title;
   if (els.instagramHeadline) els.instagramHeadline.textContent = POPUP_CONFIG.headline;
   if (els.instagramHandle)   els.instagramHandle.textContent   = POPUP_CONFIG.handle;
   if (els.instagramBody)     els.instagramBody.textContent     = POPUP_CONFIG.body;
+  if (els.instagramCtaLabel) els.instagramCtaLabel.textContent = POPUP_CONFIG.ctaLabel;
+
+  if (els.instagramChips && Array.isArray(POPUP_CONFIG.chips)) {
+    els.instagramChips.innerHTML = POPUP_CONFIG.chips
+      .map((label) => `<span class="follow-modal__chip">${label}</span>`)
+      .join('');
+  }
 
   if (els.webUrl)      els.webUrl.textContent      = URL_CONFIG.website;
   if (els.partnersUrl) els.partnersUrl.textContent = URL_CONFIG.partners;
@@ -299,17 +311,7 @@ async function startClock() {
 }
 
 function getMapUrl() {
-  // Admin override (from /admin) wins over the bundled default.
-  const base = state.mapUrlOverride || MAP_CONFIG.embedUrl;
-  let url;
-  try {
-    url = new URL(base);
-  } catch {
-    return base;
-  }
-  if (!url.searchParams.has('embedded')) url.searchParams.set('embedded', 'true');
-  if (!url.searchParams.has('kiosk'))    url.searchParams.set('kiosk', 'true');
-  return url.toString();
+  return buildMapUrl(state.mapUrlOverride || MAP_CONFIG.embedUrl);
 }
 
 // ─── GITHUB LOGO FETCHING ────────────────────────────────
@@ -952,13 +954,41 @@ function closeEventDetail() {
 //      X-Frame-Options because no HTTP response is being framed.
 //   4. If every proxy fails, show a QR / URL fallback panel so users can
 //      open the site on their phone.
+const PROXY_FETCH_TIMEOUT_MS = 22_000;
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROXY_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchThroughProxy(url) {
+  const { available } = await resolveApiBase();
+  if (available) {
+    try {
+      const res = await fetchWithTimeout(
+        await apiUrl(`/api/proxy?url=${encodeURIComponent(url)}`),
+        { cache: 'no-store' },
+      );
+      if (res.ok) {
+        const html = await res.text();
+        if (html && html.length >= 200) return html;
+      }
+    } catch {
+      /* fall through to public proxies */
+    }
+  }
+
   const proxies = URL_CONFIG.corsProxies || [];
   let lastErr;
   for (const build of proxies) {
     try {
       const proxyUrl = build(url);
-      const res = await fetch(proxyUrl, { cache: 'no-store' });
+      const res = await fetchWithTimeout(proxyUrl, { cache: 'no-store' });
       if (!res.ok) { lastErr = new Error(`proxy ${res.status}`); continue; }
       const html = await res.text();
       if (!html || html.length < 200) { lastErr = new Error('empty response'); continue; }
@@ -1057,7 +1087,8 @@ async function loadIntoFrame({ url, frame, loadingEl, fallbackEl, stateKey }) {
 }
 
 function ensureWebsiteLoaded() {
-  if (state.webLoadState.website === 'loading' || state.webLoadState.website === 'ready') return;
+  if (state.webLoadState.website === 'ready') return;
+  if (state.webLoadState.website === 'loading') return;
   loadIntoFrame({
     url: URL_CONFIG.website,
     frame: els.websiteFrame,
@@ -1068,7 +1099,8 @@ function ensureWebsiteLoaded() {
 }
 
 function ensurePartnersLoaded() {
-  if (state.webLoadState.partners === 'loading' || state.webLoadState.partners === 'ready') return;
+  if (state.webLoadState.partners === 'ready') return;
+  if (state.webLoadState.partners === 'loading') return;
   loadIntoFrame({
     url: URL_CONFIG.partners,
     frame: els.partnersFrame,
@@ -1109,8 +1141,14 @@ function setView(viewId) {
     els.mappedinFrame.src = getMapUrl();
     state.mapLoaded = true;
   }
-  if (viewId === 'website') ensureWebsiteLoaded();
-  if (viewId === 'partners') ensurePartnersLoaded();
+  if (viewId === 'website') {
+    if (state.webLoadState.website === 'error') state.webLoadState.website = 'idle';
+    ensureWebsiteLoaded();
+  }
+  if (viewId === 'partners') {
+    if (state.webLoadState.partners === 'error') state.webLoadState.partners = 'idle';
+    ensurePartnersLoaded();
+  }
   if (viewId === 'info') loadEvents();
   if (viewId === 'jobs') loadJobsPage();
 
@@ -1246,6 +1284,19 @@ function bindEvents() {
   if (els.closePopupButton) els.closePopupButton.addEventListener('click', () => { closePopup(); setView('map'); });
   if (els.instagramCloseX)  els.instagramCloseX.addEventListener('click', closePopup);
   if (els.popup) els.popup.addEventListener('click', (e) => { if (e.target === els.popup) closePopup(); });
+
+  if (els.instagramQrImage) {
+    els.instagramQrImage.addEventListener('error', () => {
+      els.instagramQrImage.classList.add('is-hidden');
+      els.instagramQrFallback?.classList.remove('is-hidden');
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && els.popup && !els.popup.classList.contains('is-hidden')) {
+      closePopup();
+    }
+  });
 
   // Event detail modal
   if (els.eventModalClose) els.eventModalClose.addEventListener('click', closeEventDetail);

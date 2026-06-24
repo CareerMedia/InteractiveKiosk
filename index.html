@@ -383,27 +383,60 @@
       </div>
 
       <!-- ══════════════════════════════════════
-           INSTAGRAM POPUP
+           INSTAGRAM POPUP (Follow Us — NeoGlass)
       ═══════════════════════════════════════ -->
-      <div class="modal-backdrop is-hidden" id="instagram-popup" role="dialog" aria-modal="true" aria-labelledby="instagram-title">
+      <div class="modal-backdrop follow-modal-backdrop is-hidden" id="instagram-popup" role="dialog" aria-modal="true" aria-labelledby="instagram-title" aria-describedby="instagram-headline">
         <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
-        <div class="instagram-modal">
-          <button class="modal-close-x" id="instagram-close-x" type="button" aria-label="Close">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
-          </button>
-          <div class="modal-kicker" id="instagram-kicker">Follow us</div>
-          <h2 class="modal-title" id="instagram-title">Follow us for career tips, events, and student success stories</h2>
-          <p class="modal-copy" id="instagram-headline">Scan to connect with @csuncareercenter</p>
-          <div class="instagram-modal__content">
-            <div class="qr-card">
-              <img src="./assets/qr/instagram-qr.png" alt="Instagram QR code for CSUN Career Center" class="qr-card__image" />
+        <div class="follow-modal">
+          <div class="follow-modal__glow" aria-hidden="true"></div>
+
+          <header class="follow-modal__header">
+            <div class="follow-modal__pill" id="instagram-kicker">
+              <span class="follow-modal__pill-icon" aria-hidden="true">✦</span>
+              <span class="follow-modal__pill-text">Follow us</span>
             </div>
-            <div class="instagram-card">
-              <div class="instagram-handle" id="instagram-handle">@csuncareercenter</div>
-              <p class="instagram-body" id="instagram-body">Scan the code to follow the Career Center and stay updated on upcoming fairs, workshops, employer highlights, and student success stories.</p>
+            <button class="follow-modal__close" id="instagram-close-x" type="button" aria-label="Close follow us modal">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6"/></svg>
+            </button>
+          </header>
+
+          <h2 class="follow-modal__title" id="instagram-title">Stay connected with CSUN Career Center</h2>
+          <p class="follow-modal__subtitle" id="instagram-headline">Scan to follow @csuncareercenter for career tips, events, workshops, employer highlights, and student success stories.</p>
+
+          <div class="follow-modal__grid">
+            <div class="follow-modal__qr-card">
+              <div class="follow-modal__qr-surface">
+                <img
+                  src="./assets/qr/instagram-qr.png"
+                  alt="QR code to follow CSUN Career Center on Instagram"
+                  class="follow-modal__qr-image"
+                  id="instagram-qr-image"
+                  width="280"
+                  height="280"
+                />
+                <p class="follow-modal__qr-fallback is-hidden" id="instagram-qr-fallback">QR code unavailable. Please continue to the map.</p>
+              </div>
+              <p class="follow-modal__scan-hint">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+                Scan with your camera
+              </p>
+            </div>
+
+            <div class="follow-modal__info-card">
+              <div class="follow-modal__info-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </div>
+              <div class="follow-modal__handle" id="instagram-handle">@csuncareercenter</div>
+              <p class="follow-modal__info-body" id="instagram-body">Get the latest career tips, hiring events, workshops, employer spotlights, and student success stories.</p>
+              <div class="follow-modal__chips" id="instagram-chips" aria-label="Content highlights"></div>
             </div>
           </div>
-          <button class="secondary-cta" id="close-popup-button" type="button">Continue to map &#8594;</button>
+
+          <button class="follow-modal__cta" id="close-popup-button" type="button">
+            <svg class="follow-modal__cta-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            <span id="instagram-cta-label">Continue to Map</span>
+            <span class="follow-modal__cta-arrow" aria-hidden="true">→</span>
+          </button>
         </div>
       </div>
 
@@ -427,14 +460,16 @@
       <!-- ══════════════════════════════════════
            JOB LIST CART + EMAIL MODAL
       ═══════════════════════════════════════ -->
-      <div class="jobs-cart-bar" id="jobs-cart-bar" aria-live="polite">
-        <div class="jobs-cart-bar__inner">
-          <span class="jobs-cart-bar__label">My Job List · <strong id="jobs-cart-count">0</strong> selected</span>
-          <div class="jobs-cart-bar__actions">
-            <button type="button" class="jobs-cart-bar__btn" id="jobs-cart-review">Review List</button>
-            <button type="button" class="jobs-cart-bar__btn jobs-cart-bar__btn--ghost" id="jobs-cart-clear">Clear</button>
-            <button type="button" class="jobs-cart-bar__btn jobs-cart-bar__btn--primary" id="jobs-cart-email">Email My Job List</button>
-          </div>
+      <div class="jobs-cart-bar kiosk-dock kiosk-dock--jobs" id="jobs-cart-bar" aria-live="polite">
+        <div class="kiosk-dock__sparkle kiosk-dock__sparkle--jobs" aria-hidden="true">✦</div>
+        <div class="cta-copy jobs-cart-bar__copy">
+          <div class="cta-label">My job list</div>
+          <p class="cta-text"><strong id="jobs-cart-count">0</strong> job<span class="jobs-cart-plural-s">s</span> selected</p>
+        </div>
+        <div class="jobs-cart-bar__actions">
+          <button type="button" class="jobs-cart-bar__btn" id="jobs-cart-review">Review List</button>
+          <button type="button" class="jobs-cart-bar__btn jobs-cart-bar__btn--ghost" id="jobs-cart-clear">Clear</button>
+          <button type="button" class="jobs-cart-bar__btn jobs-cart-bar__btn--primary" id="jobs-cart-email">Email My Job List</button>
         </div>
       </div>
 

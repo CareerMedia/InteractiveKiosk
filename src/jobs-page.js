@@ -726,8 +726,13 @@ function toggleJob(id) {
 
 function renderCart() {
   const count = state.selected.size;
+  const app = document.getElementById('app');
   if (els.jobsCartCount) els.jobsCartCount.textContent = count;
   if (els.jobsCartBar) els.jobsCartBar.classList.toggle('is-visible', count > 0);
+  app?.classList.toggle('has-jobs-cart', count > 0);
+
+  const plural = document.querySelector('.jobs-cart-plural-s');
+  if (plural) plural.textContent = count === 1 ? '' : 's';
 
   if (!els.jobsCartPanel) return;
   els.jobsCartPanel.classList.toggle('is-open', state.cartOpen && count > 0);
@@ -794,6 +799,9 @@ export function resetJobsSession() {
   if (els.jobsEmailSubmit) els.jobsEmailSubmit.disabled = false;
 
   if (state.detailJobId) closeJobDetail();
+
+  document.getElementById('app')?.classList.remove('has-jobs-cart');
+  if (els.jobsCartBar) els.jobsCartBar.classList.remove('is-visible');
 
   if (state.loaded) renderJobsPage();
   else renderCart();

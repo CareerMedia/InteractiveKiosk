@@ -53,12 +53,11 @@ function fallbackConfig() {
   return { mapUrl: MAP_CONFIG.embedUrl, apiBaseUrl: '', homepageBackground: '', version: 0, updatedAt: null };
 }
 
-// Build the same URL the kiosk iframe loads, with the embed/kiosk params set.
+// Build the same URL the kiosk iframe loads, with the embed param set.
 export function buildMapUrl(base) {
   try {
     const url = new URL(base || MAP_CONFIG.embedUrl);
     if (!url.searchParams.has('embedded')) url.searchParams.set('embedded', 'true');
-    if (!url.searchParams.has('kiosk'))    url.searchParams.set('kiosk', 'true');
     return url.toString();
   } catch {
     return base || MAP_CONFIG.embedUrl;

@@ -1,10 +1,13 @@
 export const POPUP_CONFIG = {
   kicker: 'Follow us',
-  title: 'Follow us for career tips, events, and student success stories',
-  headline: 'Scan to connect with @csuncareercenter',
+  title: 'Stay connected with CSUN Career Center',
+  headline:
+    'Scan to follow @csuncareercenter for career tips, events, workshops, employer highlights, and student success stories.',
   handle: '@csuncareercenter',
   body:
-    'Scan the code to follow the Career Center and stay updated on upcoming fairs, workshops, employer highlights, and student success stories.',
+    'Get the latest career tips, hiring events, workshops, employer spotlights, and student success stories.',
+  ctaLabel: 'Continue to Map',
   linkUrl: 'https://www.instagram.com/csuncareercenter/',
   linkLabel: 'Open Instagram',
+  chips: ['Career Tips', 'Events', 'Workshops', 'Employer Highlights'],
 };

@@ -113,6 +113,47 @@ export function createApp({ serveStatic = true } = {}) {
     });
   });
 
+  const PROXY_ALLOWED_HOSTS = new Set([
+    'www.csun.edu',
+    'csun.edu',
+    'w2.csun.edu',
+  ]);
+
+  app.get('/api/proxy', async (req, res) => {
+    const raw = String(req.query.url || '').trim();
+    if (!raw) return res.status(400).json({ error: 'Missing url parameter' });
+    let target;
+    try {
+      target = new URL(raw);
+    } catch {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
+    if (target.protocol !== 'https:' && target.protocol !== 'http:') {
+      return res.status(400).json({ error: 'Invalid protocol' });
+    }
+    if (!PROXY_ALLOWED_HOSTS.has(target.hostname)) {
+      return res.status(403).json({ error: 'Host not allowed' });
+    }
+    try {
+      const upstream = await fetch(target.toString(), {
+        headers: {
+          'User-Agent': 'CSUN-Career-Kiosk/1.0',
+          Accept: 'text/html,application/xhtml+xml',
+        },
+        redirect: 'follow',
+      });
+      if (!upstream.ok) {
+        return res.status(upstream.status).json({ error: `Upstream returned ${upstream.status}` });
+      }
+      const html = await upstream.text();
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(html);
+    } catch (err) {
+      return res.status(502).json({ error: err.message || 'Proxy fetch failed' });
+    }
+  });
+
   app.get('/api/logos', async (req, res) => {
     const dir = String(req.query.dir || '').replace(/\\/g, '/').replace(/^\/+/, '');
     if (!LOGO_DIRS.has(dir)) {
