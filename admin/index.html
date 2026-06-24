@@ -111,6 +111,7 @@
       <nav class="dash-tabs" role="tablist">
         <button class="dash-tab is-active" data-tab="map"       role="tab">Map</button>
         <button class="dash-tab"           data-tab="design"    role="tab">Kiosk Design</button>
+        <button class="dash-tab"           data-tab="checkin"   role="tab">Check-In</button>
         <button class="dash-tab"           data-tab="partners"  role="tab">Employer Partners</button>
         <button class="dash-tab"           data-tab="attendees" role="tab">Participating Employers</button>
         <button class="dash-tab"           data-tab="jobs"      role="tab">Job Opportunities</button>
@@ -204,6 +205,108 @@
               <button class="btn btn--danger"  type="button" id="design-bg-remove-btn">Remove / reset</button>
             </div>
             <div class="inline-toast is-hidden" id="design-bg-toast"></div>
+          </form>
+
+          <div class="panel-head" style="margin-top: 36px;">
+            <h2 class="panel-title">Mobile Map QR Code</h2>
+            <p class="panel-sub">
+              This QR appears in the kiosk’s “Mobile Map” popup so visitors can open the
+              map on their phone. Upload a new image to replace it — it’s committed to
+              <code>assets/qr/mobile-map.png</code> and every kiosk refreshes on next load.
+            </p>
+          </div>
+
+          <div class="preview-card branding-preview-card">
+            <div class="preview-head">
+              <span>Current QR code</span>
+            </div>
+            <div class="branding-preview-frame" id="design-qr-preview-wrap">
+              <img
+                id="design-qr-preview"
+                class="branding-preview-img is-hidden"
+                alt="Current mobile map QR code preview"
+              />
+              <div class="branding-preview-placeholder" id="design-qr-placeholder">
+                No QR uploaded yet — kiosks use the bundled default.
+              </div>
+            </div>
+            <p class="field__hint" id="design-qr-path-hint">Loading…</p>
+          </div>
+
+          <form id="design-qr-form" class="map-form" autocomplete="off">
+            <label class="field">
+              <span class="field__label">Replace mobile map QR image</span>
+              <input
+                type="file"
+                id="design-qr-input"
+                class="field__input field__input--file"
+                accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"
+              />
+              <span class="field__hint">
+                Use a high-contrast square QR image (PNG recommended). Max 10 MB.
+              </span>
+            </label>
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="design-qr-upload-btn">Upload &amp; commit</button>
+            </div>
+            <div class="inline-toast is-hidden" id="design-qr-toast"></div>
+          </form>
+        </section>
+
+        <!-- ─── CHECK-IN TAB ─── -->
+        <section class="dash-panel" data-panel="checkin">
+          <div class="panel-head">
+            <h2 class="panel-title">Student Check-In</h2>
+            <p class="panel-sub">
+              Configure the Check-In page shown on the kiosk. Choose to embed a simple
+              link (e.g. a Monday form) or paste a full embed code. Saves to
+              <code>config.json</code>; every kiosk picks it up on its next load.
+            </p>
+          </div>
+
+          <form id="checkin-form" class="map-form" autocomplete="off">
+            <fieldset class="field" style="border:0; padding:0; margin:0;">
+              <span class="field__label">Embed type</span>
+              <div class="checkin-modes">
+                <label class="checkin-radio">
+                  <input type="radio" name="checkin-mode" value="url" id="checkin-mode-url" checked />
+                  <span>Embed a link (URL)</span>
+                </label>
+                <label class="checkin-radio">
+                  <input type="radio" name="checkin-mode" value="embed" id="checkin-mode-embed" />
+                  <span>Use an embed code</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <label class="field" id="checkin-url-field">
+              <span class="field__label">Check-In link (URL)</span>
+              <input
+                type="url"
+                id="checkin-url-input"
+                class="field__input"
+                placeholder="https://forms.monday.com/forms/…"
+              />
+              <span class="field__hint">The page is embedded in an iframe so the form stays fully interactive.</span>
+            </label>
+
+            <label class="field is-hidden" id="checkin-embed-field">
+              <span class="field__label">Embed code</span>
+              <textarea
+                id="checkin-embed-input"
+                class="field__input"
+                rows="7"
+                placeholder="&lt;iframe src=&quot;…&quot;&gt;&lt;/iframe&gt; or provider embed snippet"
+                style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.45;"
+              ></textarea>
+              <span class="field__hint">Paste the full snippet provided by your form tool. Scripts in the snippet will run on the kiosk.</span>
+            </label>
+
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="checkin-save-btn">Commit change</button>
+              <button class="btn btn--ghost"   type="button" id="checkin-clear-btn">Clear</button>
+            </div>
+            <div class="inline-toast is-hidden" id="checkin-toast"></div>
           </form>
         </section>
 

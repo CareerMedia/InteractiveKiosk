@@ -3,5 +3,9 @@
   "apiBaseUrl": "https://interactive-kiosk.vercel.app",
   "version": 6,
   "updatedAt": "2026-06-24T17:42:09.463Z",
-  "homepageBackground": "assets/branding/homepage-background.png"
+  "homepageBackground": "assets/branding/homepage-background.png",
+  "checkInMode": "url",
+  "checkInUrl": "",
+  "checkInEmbed": "",
+  "mobileMapQr": "assets/qr/mobile-map.png"
 }

@@ -16,6 +16,10 @@ export const HEADER_PAGE_CONTEXT = {
     title: 'Job Opportunities',
     subtitle: 'Find your next opportunity',
   },
+  checkin: {
+    title: 'Check In',
+    subtitle: 'Sign in to the career fair',
+  },
   partners: {
     title: 'Employer Partners',
     subtitle: 'Organizations supporting the CSUN Career Center',

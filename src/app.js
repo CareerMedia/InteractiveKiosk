@@ -13,7 +13,7 @@ import { initIdleAdPlayer } from './idle-ad-player.js';
 
 // ─── STATE ────────────────────────────────────────────────
 const state = {
-  activeView: 'home',    // 'home' | 'map' | 'website' | 'info' | 'partners' | 'jobs'
+  activeView: 'home',    // 'home' | 'map' | 'website' | 'info' | 'jobs' | 'checkin' | 'partners'
   inactivityTimer: null,
   countdownTimer: null,
   popupTimer: null,
@@ -28,6 +28,8 @@ const state = {
   idleAdPlayer: null,
   webLoadState: { website: 'idle', partners: 'idle' },
   webHtmlCache: {},
+  checkIn: { mode: 'url', url: '', embed: '' },
+  checkInLoaded: false,
   clockTimer: null,
   clockSyncTimer: null,
   clockOffsetMs: 0,
@@ -72,6 +74,7 @@ const els = {
   viewInfo:           document.getElementById('view-info'),
   viewJobs:           document.getElementById('view-jobs'),
   viewPartners:       document.getElementById('view-partners'),
+  viewCheckin:        document.getElementById('view-checkin'),
 
   // Map
   mappedinFrame:      document.getElementById('mappedin-frame'),
@@ -93,6 +96,12 @@ const els = {
   partnersFallbackUrl:document.getElementById('partners-fallback-url'),
   partnersUrl:        document.getElementById('partners-url'),
   partnersOpenExternal:document.getElementById('partners-open-external'),
+
+  // Check In view
+  checkinFrame:       document.getElementById('checkin-frame'),
+  checkinLoading:     document.getElementById('checkin-loading'),
+  checkinEmbed:       document.getElementById('checkin-embed'),
+  checkinEmpty:       document.getElementById('checkin-empty'),
 
   // Info (events)
   eventsGrid:         document.getElementById('events-grid'),
@@ -147,6 +156,7 @@ const VIEWS = {
   info:     { el: els.viewInfo },
   jobs:     { el: els.viewJobs },
   partners: { el: els.viewPartners },
+  checkin:  { el: els.viewCheckin },
 };
 
 // ─── STATIC COPY ─────────────────────────────────────────
@@ -1154,6 +1164,67 @@ function ensurePartnersLoaded() {
   });
 }
 
+// ─── CHECK IN ────────────────────────────────────────────
+// Unlike website/partners (which proxy read-only pages), Check In embeds an
+// interactive form (e.g. a Monday form), so we load it DIRECTLY — either as a
+// raw embed snippet or a plain URL in an iframe — so submit buttons and form
+// actions keep working. The container scrolls internally so nothing is cut off.
+function renderCheckIn() {
+  if (!els.viewCheckin) return;
+  const { mode, url, embed } = state.checkIn;
+  const hide = (el) => el && el.classList.add('is-hidden');
+  const show = (el) => el && el.classList.remove('is-hidden');
+
+  hide(els.checkinLoading);
+
+  if (mode === 'embed' && embed && embed.trim()) {
+    if (els.checkinEmbed) els.checkinEmbed.innerHTML = embed;
+    activateEmbeddedScripts(els.checkinEmbed);
+    show(els.checkinEmbed);
+    hide(els.checkinFrame);
+    hide(els.checkinEmpty);
+    if (els.checkinFrame) els.checkinFrame.removeAttribute('src');
+    state.checkInLoaded = true;
+    return;
+  }
+
+  if (url && url.trim()) {
+    if (els.checkinEmbed) els.checkinEmbed.innerHTML = '';
+    if (els.checkinFrame && els.checkinFrame.getAttribute('src') !== url) {
+      els.checkinFrame.setAttribute('src', url);
+    }
+    show(els.checkinFrame);
+    hide(els.checkinEmbed);
+    hide(els.checkinEmpty);
+    state.checkInLoaded = true;
+    return;
+  }
+
+  // Nothing configured yet.
+  if (els.checkinEmbed) els.checkinEmbed.innerHTML = '';
+  if (els.checkinFrame) els.checkinFrame.removeAttribute('src');
+  hide(els.checkinFrame);
+  hide(els.checkinEmbed);
+  show(els.checkinEmpty);
+  state.checkInLoaded = false;
+}
+
+// Inserting an embed snippet via innerHTML does NOT execute its <script> tags.
+// Re-create them so provider widget loaders (Monday, Typeform, etc.) run.
+function activateEmbeddedScripts(container) {
+  if (!container) return;
+  container.querySelectorAll('script').forEach((old) => {
+    const fresh = document.createElement('script');
+    for (const attr of old.attributes) fresh.setAttribute(attr.name, attr.value);
+    fresh.text = old.textContent || '';
+    old.replaceWith(fresh);
+  });
+}
+
+function ensureCheckInLoaded() {
+  renderCheckIn();
+}
+
 // ─── VIEW SWITCHING ──────────────────────────────────────
 function setView(viewId) {
   if (!VIEWS[viewId]) return;
@@ -1196,6 +1267,7 @@ function setView(viewId) {
   }
   if (viewId === 'info') loadEvents();
   if (viewId === 'jobs') loadJobsPage();
+  if (viewId === 'checkin') ensureCheckInLoaded();
 
   // Inactivity + popup scheduling
   if (viewId === 'home') {
@@ -1453,11 +1525,32 @@ async function loadRuntimeConfig() {
     state.configVersion = cfg.version || 0;
     if (cfg.mapUrl) state.mapUrlOverride = cfg.mapUrl;
     applyHeroBackground(cfg.homepageBackground);
+    applyMobileMapQr(cfg.mobileMapQr);
+    state.checkIn = {
+      mode: cfg.checkInMode === 'embed' ? 'embed' : 'url',
+      url: cfg.checkInUrl || '',
+      embed: cfg.checkInEmbed || '',
+    };
+    renderCheckIn();
     state.idleAdPlayer?.checkRemoteTestTrigger?.();
   } catch (err) {
     console.warn('config.json unavailable; using bundled defaults.', err);
     applyHeroBackground('');
+    renderCheckIn();
   }
+}
+
+// Apply an admin-uploaded mobile-map QR image (with cache-bust). Falls back to
+// the bundled asset path if no override is set in config.json.
+function applyMobileMapQr(path) {
+  if (!els.mobileMapQrImage) return;
+  const target = path && path.trim() ? path.trim() : 'assets/qr/mobile-map.png';
+  const url = resolveAssetUrl(target);
+  if (!url) return;
+  const sep = url.includes('?') ? '&' : '?';
+  els.mobileMapQrImage.classList.remove('is-hidden');
+  els.mobileMapQrFallback?.classList.add('is-hidden');
+  els.mobileMapQrImage.src = `${url}${sep}v=${state.configVersion || Date.now()}`;
 }
 
 // ─── INIT ────────────────────────────────────────────────

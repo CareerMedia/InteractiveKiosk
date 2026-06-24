@@ -335,6 +335,32 @@
               </div>
             </section>
 
+            <!-- CHECK IN VIEW (embed a link or embed code; admin-configurable) -->
+            <section class="view view--checkin" id="view-checkin" aria-hidden="true">
+              <div class="checkin-stage" id="checkin-stage">
+                <div class="checkin-loading" id="checkin-loading">
+                  <div class="spinner"></div>
+                  <span>Loading check-in…</span>
+                </div>
+                <iframe
+                  id="checkin-frame"
+                  class="checkin-frame is-hidden"
+                  title="Student Check-In"
+                  frameborder="0"
+                  allow="clipboard-write; web-share; camera; microphone"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                ></iframe>
+                <div class="checkin-embed is-hidden" id="checkin-embed"></div>
+                <div class="checkin-empty is-hidden" id="checkin-empty">
+                  <div class="checkin-empty__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                  </div>
+                  <div class="checkin-empty__title">Check-In not configured</div>
+                  <p class="checkin-empty__text">Add a check-in link or embed code in the admin portal under the Check-In tab.</p>
+                </div>
+              </div>
+            </section>
+
           </div><!-- /main-panel -->
         </div><!-- /stage-body -->
 
@@ -370,6 +396,13 @@
               <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><path d="M2 13h20"/></svg>
             </div>
             <span class="sidebar-item__label">Jobs</span>
+          </button>
+
+          <button class="sidebar-item" data-view="checkin" type="button">
+            <div class="sidebar-item__icon">
+              <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            </div>
+            <span class="sidebar-item__label">Check In</span>
           </button>
 
           <button class="sidebar-item" data-view="partners" type="button">

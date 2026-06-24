@@ -46,6 +46,9 @@ const PARTNERS_DIR   = 'assets/employers/partners';
 const ATTENDEES_DIR  = 'assets/employers/attendees';
 const BRANDING_DIR   = 'assets/branding';
 const HOMEPAGE_BG_BASENAME = 'homepage-background';
+const QR_DIR = 'assets/qr';
+const MOBILE_MAP_QR_BASENAME = 'mobile-map';
+const QR_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
 
 // ─── DOM refs ───────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -90,6 +93,26 @@ const designBgPathHint   = $('design-bg-path-hint');
 const designBgUploadBtn  = $('design-bg-upload-btn');
 const designBgRemoveBtn  = $('design-bg-remove-btn');
 const designBgToast      = $('design-bg-toast');
+
+// Mobile Map QR (Kiosk Design tab)
+const designQrForm       = $('design-qr-form');
+const designQrInput      = $('design-qr-input');
+const designQrPreview    = $('design-qr-preview');
+const designQrPlaceholder = $('design-qr-placeholder');
+const designQrPathHint   = $('design-qr-path-hint');
+const designQrUploadBtn  = $('design-qr-upload-btn');
+const designQrToast      = $('design-qr-toast');
+
+// Check-In tab
+const checkInForm        = $('checkin-form');
+const checkInUrlField    = $('checkin-url-field');
+const checkInUrlInput    = $('checkin-url-input');
+const checkInEmbedField  = $('checkin-embed-field');
+const checkInEmbedInput  = $('checkin-embed-input');
+const checkInSaveBtn     = $('checkin-save-btn');
+const checkInClearBtn    = $('checkin-clear-btn');
+const checkInToast       = $('checkin-toast');
+const checkInModeRadios  = document.querySelectorAll('input[name="checkin-mode"]');
 
 // Sections
 const sections = {
@@ -291,7 +314,7 @@ async function loadConfigFromRepo() {
   return configState;
 }
 
-async function commitConfig({ mapUrl, apiBaseUrl, homepageBackground, bumpVersion = true, message }) {
+async function commitConfig({ mapUrl, apiBaseUrl, homepageBackground, mobileMapQr, checkInMode, checkInUrl, checkInEmbed, bumpVersion = true, message }) {
   const write = async () => {
     const current = configState.data || {};
     const next = {
@@ -301,6 +324,18 @@ async function commitConfig({ mapUrl, apiBaseUrl, homepageBackground, bumpVersio
       homepageBackground: homepageBackground !== undefined
         ? String(homepageBackground || '').trim()
         : (current.homepageBackground || ''),
+      mobileMapQr: mobileMapQr !== undefined
+        ? String(mobileMapQr || '').trim()
+        : (current.mobileMapQr || ''),
+      checkInMode: checkInMode !== undefined
+        ? (checkInMode === 'embed' ? 'embed' : 'url')
+        : (current.checkInMode === 'embed' ? 'embed' : (current.checkInMode || 'url')),
+      checkInUrl: checkInUrl !== undefined
+        ? String(checkInUrl || '').trim()
+        : (current.checkInUrl || ''),
+      checkInEmbed: checkInEmbed !== undefined
+        ? String(checkInEmbed || '')
+        : (current.checkInEmbed || ''),
       version: bumpVersion ? Number(current.version || 0) + 1 : Number(current.version || 0),
       updatedAt: new Date().toISOString(),
     };
@@ -470,6 +505,7 @@ async function loadDesignTab() {
   }
   const path = configState.data?.homepageBackground || '';
   updateDesignPreview(path);
+  updateQrPreview(configState.data?.mobileMapQr || '');
 }
 
 async function handleDesignBgUpload(e) {
@@ -568,6 +604,178 @@ async function handleDesignBgRemove() {
 function wireDesignTab() {
   designBgForm?.addEventListener('submit', handleDesignBgUpload);
   designBgRemoveBtn?.addEventListener('click', handleDesignBgRemove);
+  designQrForm?.addEventListener('submit', handleDesignQrUpload);
+}
+
+// ─── Mobile Map QR (Kiosk Design tab) ───────────────────
+function validateQrFile(file) {
+  if (!file) return { ok: false, error: 'Choose an image file.' };
+  const ext = extFromFilename(file.name);
+  if (!QR_EXTS.includes(ext)) {
+    return { ok: false, error: 'Unsupported format. Use PNG, JPG, WebP, or SVG.' };
+  }
+  if (file.size > BRANDING_CONFIG.maxBytes) {
+    return { ok: false, error: 'File is too large. Maximum size is 10 MB.' };
+  }
+  return { ok: true, ext };
+}
+
+async function findExistingMobileMapQr() {
+  for (const ext of QR_EXTS) {
+    const path = `${QR_DIR}/${MOBILE_MAP_QR_BASENAME}.${ext}`;
+    try {
+      const file = await getFile(conn, path);
+      if (file?.sha) return { path, sha: file.sha, ext };
+    } catch { /* try next extension */ }
+  }
+  return null;
+}
+
+function updateQrPreview(path) {
+  if (!designQrPreview || !designQrPlaceholder) return;
+  if (path) {
+    designQrPreview.src = rawUrl(conn, path);
+    designQrPreview.classList.remove('is-hidden');
+    designQrPlaceholder.classList.add('is-hidden');
+    if (designQrPathHint) designQrPathHint.textContent = `Active path: ${path}`;
+  } else {
+    designQrPreview.removeAttribute('src');
+    designQrPreview.classList.add('is-hidden');
+    designQrPlaceholder.classList.remove('is-hidden');
+    if (designQrPathHint) designQrPathHint.textContent = 'Using bundled default: assets/qr/mobile-map.png';
+  }
+}
+
+async function handleDesignQrUpload(e) {
+  e.preventDefault();
+  const file = designQrInput?.files?.[0];
+  const validation = validateQrFile(file);
+  if (!validation.ok) {
+    toast(designQrToast, validation.error, 'error', 6000);
+    return;
+  }
+
+  // Always write to the canonical .png path the kiosk references by default so
+  // existing markup keeps working; if a non-png is uploaded, store at its ext
+  // and point config.json at it.
+  const targetPath = `${QR_DIR}/${MOBILE_MAP_QR_BASENAME}.${validation.ext}`;
+  const prev = designQrUploadBtn?.textContent;
+  if (designQrUploadBtn) {
+    designQrUploadBtn.disabled = true;
+    designQrUploadBtn.textContent = 'Committing…';
+  }
+
+  try {
+    const existing = await findExistingMobileMapQr();
+    if (existing && existing.path !== targetPath) {
+      await deleteFile(conn, {
+        path: existing.path,
+        sha: existing.sha,
+        message: `admin: remove old mobile map QR ${existing.path}`,
+      });
+    }
+
+    await putBinaryFile(conn, {
+      path: targetPath,
+      blob: file,
+      message: `admin: upload mobile map QR ${MOBILE_MAP_QR_BASENAME}.${validation.ext}`,
+    });
+
+    await commitConfig({
+      mobileMapQr: targetPath,
+      bumpVersion: true,
+      message: 'admin: set mobile map QR code',
+    });
+
+    toast(designQrToast, 'QR code committed. Kiosks will pick it up on next load.', 'success', 5000);
+    designQrForm?.reset();
+    updateQrPreview(targetPath);
+  } catch (err) {
+    toast(designQrToast, `Upload failed: ${err.message}`, 'error', 7000);
+  } finally {
+    if (designQrUploadBtn) {
+      designQrUploadBtn.disabled = false;
+      designQrUploadBtn.textContent = prev;
+    }
+  }
+}
+
+// ─── Check-In tab ───────────────────────────────────────
+function currentCheckInMode() {
+  const checked = document.querySelector('input[name="checkin-mode"]:checked');
+  return checked && checked.value === 'embed' ? 'embed' : 'url';
+}
+
+function syncCheckInModeUI() {
+  const mode = currentCheckInMode();
+  checkInUrlField?.classList.toggle('is-hidden', mode !== 'url');
+  checkInEmbedField?.classList.toggle('is-hidden', mode !== 'embed');
+}
+
+async function loadCheckInTab() {
+  try {
+    await loadConfigFromRepo();
+  } catch (err) {
+    toast(checkInToast, `Could not read config.json: ${err.message}`, 'error', 5000);
+  }
+  const data = configState.data || {};
+  const mode = data.checkInMode === 'embed' ? 'embed' : 'url';
+  const urlRadio = $('checkin-mode-url');
+  const embedRadio = $('checkin-mode-embed');
+  if (urlRadio) urlRadio.checked = mode === 'url';
+  if (embedRadio) embedRadio.checked = mode === 'embed';
+  if (checkInUrlInput) checkInUrlInput.value = data.checkInUrl || '';
+  if (checkInEmbedInput) checkInEmbedInput.value = data.checkInEmbed || '';
+  syncCheckInModeUI();
+}
+
+async function handleCheckInSave(e) {
+  e.preventDefault();
+  const mode = currentCheckInMode();
+  const url = (checkInUrlInput?.value || '').trim();
+  const embed = checkInEmbedInput?.value || '';
+
+  if (mode === 'url' && url) {
+    try { new URL(url); } catch {
+      toast(checkInToast, 'That doesn\u2019t look like a valid URL.', 'error');
+      return;
+    }
+  }
+  if (mode === 'embed' && !embed.trim()) {
+    toast(checkInToast, 'Paste an embed code, or switch to “Embed a link”.', 'error');
+    return;
+  }
+
+  const prev = checkInSaveBtn?.textContent;
+  if (checkInSaveBtn) {
+    checkInSaveBtn.disabled = true;
+    checkInSaveBtn.textContent = 'Committing…';
+  }
+  try {
+    await commitConfig({
+      checkInMode: mode,
+      checkInUrl: url,
+      checkInEmbed: embed,
+      message: 'admin: update check-in settings',
+    });
+    toast(checkInToast, 'Committed. Kiosks will pick this up on their next load.', 'success', 4200);
+  } catch (err) {
+    toast(checkInToast, `Commit failed: ${err.message}`, 'error', 6000);
+  } finally {
+    if (checkInSaveBtn) {
+      checkInSaveBtn.disabled = false;
+      checkInSaveBtn.textContent = prev;
+    }
+  }
+}
+
+function wireCheckInTab() {
+  checkInModeRadios.forEach((r) => r.addEventListener('change', syncCheckInModeUI));
+  checkInForm?.addEventListener('submit', handleCheckInSave);
+  checkInClearBtn?.addEventListener('click', () => {
+    if (checkInUrlInput) checkInUrlInput.value = '';
+    if (checkInEmbedInput) checkInEmbedInput.value = '';
+  });
 }
 
 // ─── Section rendering ──────────────────────────────────
@@ -1684,9 +1892,11 @@ async function initDashboard() {
   wireJobsTab();
   wireAdsTab();
   wireDesignTab();
+  wireCheckInTab();
   await loadMapTab();
   await Promise.all([
     loadDesignTab(),
+    loadCheckInTab(),
     renderSection(sections.partners),
     renderSection(sections.attendees),
     loadJobsTab(),

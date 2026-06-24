@@ -77,6 +77,32 @@ html, body { margin: 0; padding: 0; height: 100%; }
 .panel-actions--center {
   justify-content: center;
 }
+
+/* Check-In embed-type radios */
+.checkin-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+.checkin-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border: 1.5px solid var(--a-border, #d8dce4);
+  border-radius: var(--a-radius, 12px);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.checkin-radio:hover { border-color: var(--a-red, #d71920); }
+.checkin-radio:has(input:checked) {
+  border-color: var(--a-red, #d71920);
+  background: rgba(215, 25, 32, 0.06);
+}
+.checkin-radio input { accent-color: var(--a-red, #d71920); width: 18px; height: 18px; }
 .panel-actions--center > * { flex: 0 1 auto; }
 .login-card::before {
   content: '';
