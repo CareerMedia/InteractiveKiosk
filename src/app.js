@@ -286,18 +286,33 @@ function getKioskNow() {
   return new Date(Date.now() + (state.clockOffsetMs || 0));
 }
 
+// The kiosk's own device clock is the primary source of truth; the LA time is
+// derived purely from `Intl`/`toLocaleString` with the configured timezone, so
+// the device's local timezone setting does not matter. We optionally fetch a
+// network time only to correct small hardware-clock drift — and we REJECT any
+// response that disagrees by more than a few minutes, so a stale/wrong time API
+// (e.g. returning a date months in the past) can never corrupt the display.
 async function syncClockOffset() {
-  const tz = TIMING_CONFIG.kioskTimezone || 'America/Los_Angeles';
+  const endpoint = TIMING_CONFIG.timeApiUrl;
+  if (!endpoint) {
+    state.clockOffsetMs = 0;
+    return;
+  }
   try {
-    const res = await fetch(`https://worldtimeapi.org/api/timezone/${encodeURIComponent(tz)}`, {
-      cache: 'no-store',
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(endpoint, { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeout);
     if (!res.ok) return;
     const data = await res.json();
-    const networkMs = new Date(data.datetime).getTime();
-    if (Number.isFinite(networkMs)) {
-      state.clockOffsetMs = networkMs - Date.now();
-    }
+    const raw = data.datetime || data.dateTime || data.utc_datetime;
+    const networkMs = raw ? new Date(raw).getTime() : NaN;
+    if (!Number.isFinite(networkMs)) return;
+
+    const offset = networkMs - Date.now();
+    const maxDriftMs = TIMING_CONFIG.maxClockDriftMs || 5 * 60 * 1000;
+    // Only trust the network time for minor drift; ignore wildly-off responses.
+    state.clockOffsetMs = Math.abs(offset) <= maxDriftMs ? offset : 0;
   } catch {
     state.clockOffsetMs = 0;
   }
@@ -420,9 +435,14 @@ function buildPartnerCards(target) {
     const card = document.createElement('div');
     card.className = 'partner-logo-card';
     const img = document.createElement('img');
-    img.src = logo.src;
+    // Eager load + async decode: these logos live inside a transform-animated
+    // marquee (and a cloned copy), where `loading="lazy"` makes the browser
+    // treat the off-transform cards as out-of-viewport and never paint them —
+    // leaving blank cards until an interaction forces a repaint.
+    img.loading = 'eager';
+    img.decoding = 'async';
     img.alt = logo.name;
-    img.loading = 'lazy';
+    img.src = logo.src;
     card.appendChild(img);
     target.appendChild(card);
   });
@@ -497,10 +517,14 @@ function makeTickerCard(logo) {
   const logoWrap = document.createElement('div');
   logoWrap.className = 'ticker-card__logo';
   const img = document.createElement('img');
-  img.src = logo.src;
-  img.alt = logo.name || '';
-  img.loading = 'lazy';
+  // Eager load + async decode: cards sit inside a translate-animated, duplicated
+  // marquee column where `loading="lazy"` causes blank/missing cards (the browser
+  // treats the off-transform copies as out-of-viewport) until a click repaints.
+  img.loading = 'eager';
+  img.decoding = 'async';
   img.draggable = false;
+  img.alt = logo.name || '';
+  img.src = logo.src;
   logoWrap.appendChild(img);
   card.appendChild(logoWrap);
 
