@@ -1,6 +1,7 @@
 {
   "mapUrl": "https://app.mappedin.com/map/67be0704561935000b3e6cbb?embedded=true",
   "apiBaseUrl": "https://interactive-kiosk.vercel.app",
-  "version": 5,
-  "updatedAt": "2026-06-22T20:37:19.851Z"
+  "version": 6,
+  "updatedAt": "2026-06-24T17:42:09.463Z",
+  "homepageBackground": "assets/branding/homepage-background.png"
 }
