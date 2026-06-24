@@ -59,12 +59,6 @@
   grid-template-rows: 1fr;
 }
 
-.app:not([data-view="map"]) .stage-body {
-  padding-right: var(--kiosk-nav-reserve);
-  padding-bottom: calc(var(--kiosk-dock-height) + 12px);
-  box-sizing: border-box;
-}
-
 .app:not([data-view="map"]) .topbar {
   padding-right: calc(16px + var(--kiosk-nav-reserve));
   box-sizing: border-box;
@@ -91,7 +85,8 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  padding: 0 0 calc(var(--kiosk-dock-height) + 16px);
+  /* .main-panel already clears the floating dock for non-map views */
+  padding: 0;
 }
 
 .kiosk-hero {
@@ -721,10 +716,13 @@
   flex-shrink: 0;
 }
 
-/* Non-home views: content stays left of floating nav (stage-body rule above) */
+/* Every non-map view's content panel must sit fully LEFT of the floating nav
+   and ABOVE the floating dock. `.main-panel` is position:absolute with inset:0,
+   so it ignores ancestor padding — we have to inset the panel itself. */
 .app:not([data-view="map"]) .main-panel {
-  right: 0;
   left: 0;
+  right: var(--kiosk-nav-reserve);
+  bottom: calc(var(--kiosk-dock-height) + 24px);
 }
 
 /* Modals & popups above floating nav + dock */
