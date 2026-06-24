@@ -4,31 +4,54 @@
 
 import { apiUrl, isApiAvailable } from './api-base.js';
 import { ADS_JSON_PATH, emptyAdsData } from './ads-constants.js';
+import { loadConfig } from './config.js';
 
-function adsJsonUrl() {
+function adsJsonUrl(version) {
   const { origin, pathname } = window.location;
   let root = pathname.replace(/[^/]*$/, '');
   root = root.replace(/(?:^|\/)(?:mobile|admin)\/+$/, '/');
   if (!root.endsWith('/')) root += '/';
-  return `${origin}${root}${ADS_JSON_PATH}?t=${Date.now()}`;
+  const bust = version ? `v=${encodeURIComponent(version)}` : `t=${Date.now()}`;
+  return `${origin}${root}${ADS_JSON_PATH}?${bust}`;
 }
 
 let _adsPromise = null;
 
 export async function loadActiveAds({ force = false } = {}) {
-  if (_adsPromise && !force) return _adsPromise;
+  if (force) _adsPromise = null;
+  if (_adsPromise) return _adsPromise;
 
   _adsPromise = (async () => {
+    let version = '';
+    try {
+      const cfg = await loadConfig({ force });
+      version = cfg.version ?? '';
+    } catch { /* use timestamp fallback */ }
+
+    // Static JSON is updated by admin GitHub commits; prefer it over the API,
+    // which may serve a stale deploy-time copy on Vercel.
+    try {
+      const res = await fetch(adsJsonUrl(version), { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const payload = filterPublicFromJson(data);
+        if (payload.ads.length > 0) return payload;
+      }
+    } catch { /* fall through */ }
+
     const { available } = await isApiAvailable({ force });
     if (available) {
       try {
         const res = await fetch(await apiUrl('/api/ads'), { cache: 'no-store' });
-        if (res.ok) return res.json();
+        if (res.ok) {
+          const payload = await res.json();
+          if (payload.ads?.length) return payload;
+        }
       } catch { /* fall through */ }
     }
 
     try {
-      const res = await fetch(adsJsonUrl(), { cache: 'no-store' });
+      const res = await fetch(adsJsonUrl(version), { cache: 'no-store' });
       if (!res.ok) return emptyPublicAds();
       const data = await res.json();
       return filterPublicFromJson(data);

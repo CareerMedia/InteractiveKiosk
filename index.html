@@ -347,10 +347,21 @@
                   class="checkin-frame is-hidden"
                   title="Student Check-In"
                   frameborder="0"
-                  allow="clipboard-write; web-share; camera; microphone"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  allow="accelerometer; autoplay; camera; encrypted-media; fullscreen; geolocation; gyroscope; microphone; midi; payment; picture-in-picture; clipboard-read; clipboard-write; web-share"
                 ></iframe>
                 <div class="checkin-embed is-hidden" id="checkin-embed"></div>
+                <div class="checkin-fallback is-hidden" id="checkin-fallback">
+                  <div class="checkin-fallback__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                  </div>
+                  <div class="checkin-fallback__title">Open check-in form</div>
+                  <p class="checkin-fallback__text">
+                    This kiosk browser can’t show the form inline. Tap below to open it full screen — the kiosk will return here after idle reset.
+                  </p>
+                  <button class="checkin-fallback__btn" id="checkin-open-btn" type="button">Open Check-In Form</button>
+                  <div class="checkin-fallback__url" id="checkin-fallback-url"></div>
+                </div>
                 <div class="checkin-empty is-hidden" id="checkin-empty">
                   <div class="checkin-empty__icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
@@ -437,7 +448,7 @@
         </footer>
       </div><!-- /stage -->
 
-      <!-- Idle kiosk ads (plays behind footer + sidebar) -->
+      <!-- Idle kiosk ads (full screen above sidebar; footer stays on top) -->
       <div class="idle-ad-overlay is-hidden" id="idle-ad-overlay" aria-hidden="true" aria-label="Kiosk advertisement">
         <div class="idle-ad-overlay__media" id="idle-ad-media"></div>
       </div>

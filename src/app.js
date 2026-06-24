@@ -30,6 +30,8 @@ const state = {
   webHtmlCache: {},
   checkIn: { mode: 'url', url: '', embed: '' },
   checkInLoaded: false,
+  checkInLoadState: 'idle',
+  checkInTargetUrl: '',
   clockTimer: null,
   clockSyncTimer: null,
   clockOffsetMs: 0,
@@ -101,6 +103,9 @@ const els = {
   checkinFrame:       document.getElementById('checkin-frame'),
   checkinLoading:     document.getElementById('checkin-loading'),
   checkinEmbed:       document.getElementById('checkin-embed'),
+  checkinFallback:    document.getElementById('checkin-fallback'),
+  checkinFallbackUrl: document.getElementById('checkin-fallback-url'),
+  checkinOpenBtn:     document.getElementById('checkin-open-btn'),
   checkinEmpty:       document.getElementById('checkin-empty'),
 
   // Info (events)
@@ -1165,48 +1170,258 @@ function ensurePartnersLoaded() {
 }
 
 // ─── CHECK IN ────────────────────────────────────────────
-// Unlike website/partners (which proxy read-only pages), Check In embeds an
-// interactive form (e.g. a Monday form), so we load it DIRECTLY — either as a
-// raw embed snippet or a plain URL in an iframe — so submit buttons and form
-// actions keep working. The container scrolls internally so nothing is cut off.
+// Interactive forms (Monday, Typeform, etc.) load in a single iframe when
+// possible. Android kiosk shells (Fully Kiosk Browser, WebView wrappers) often
+// block cross-origin iframes with ERR_BLOCKED_BY_RESPONSE — we detect that
+// environment and fall back to proxy + srcdoc, then full-page navigation.
+
+function isRestrictedEmbedShell() {
+  const ua = navigator.userAgent || '';
+  if (/Fully Kiosk|FullyKiosk/i.test(ua)) return true;
+  if (typeof window.fully === 'object' && window.fully !== null) return true;
+  // Android System WebView marker (inside apps — not Chrome browser).
+  if (/Android/i.test(ua) && /; wv\)/i.test(ua)) return true;
+  return false;
+}
+
+function parseCheckInEmbed(embedHtml) {
+  const trimmed = String(embedHtml || '').trim();
+  if (!trimmed) return { url: '', rawHtml: '' };
+  const iframeSrc = trimmed.match(/<iframe[^>]*\ssrc=["']([^"']+)["']/i);
+  if (iframeSrc) return { url: iframeSrc[1], rawHtml: '' };
+  const anySrc = trimmed.match(/\ssrc=["']([^"']+)["']/i);
+  if (anySrc) return { url: anySrc[1], rawHtml: '' };
+  return { url: '', rawHtml: trimmed };
+}
+
+function normalizeCheckInUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'forms.monday.com' || u.hostname.endsWith('.monday.com')) {
+      if (!u.searchParams.has('embed')) u.searchParams.set('embed', 'true');
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function prefersTopLevelCheckIn(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'forms.monday.com' || host.endsWith('.monday.com');
+  } catch {
+    return false;
+  }
+}
+
+function resolveCheckInTarget() {
+  const { mode, url, embed } = state.checkIn;
+  if (mode === 'embed' && embed && embed.trim()) {
+    const parsed = parseCheckInEmbed(embed);
+    if (parsed.url) {
+      return { url: normalizeCheckInUrl(parsed.url), rawHtml: '' };
+    }
+    return { url: '', rawHtml: parsed.rawHtml };
+  }
+  if (url && url.trim()) {
+    return { url: normalizeCheckInUrl(url.trim()), rawHtml: '' };
+  }
+  return { url: '', rawHtml: '' };
+}
+
+function showCheckInLoading(message = 'Loading check-in…') {
+  if (els.checkinLoading) {
+    const label = els.checkinLoading.querySelector('span');
+    if (label) label.textContent = message;
+    els.checkinLoading.classList.remove('is-hidden');
+  }
+}
+
+function hideCheckInLoading() {
+  els.checkinLoading?.classList.add('is-hidden');
+}
+
+function hideCheckInFallback() {
+  els.checkinFallback?.classList.add('is-hidden');
+}
+
+function resetCheckInFrame() {
+  if (!els.checkinFrame) return;
+  els.checkinFrame.removeAttribute('srcdoc');
+  els.checkinFrame.removeAttribute('src');
+}
+
+function openCheckInTopLevel(url) {
+  const target = normalizeCheckInUrl(url);
+  showCheckInLoading('Opening check-in form…');
+  hideCheckInFallback();
+  window.setTimeout(() => {
+    window.location.assign(target);
+  }, 350);
+}
+
+function showCheckInFallback(url, { autoOpenMs = 0 } = {}) {
+  hideCheckInLoading();
+  els.checkinFrame?.classList.add('is-hidden');
+  els.checkinEmbed?.classList.add('is-hidden');
+  if (els.checkinFallbackUrl) els.checkinFallbackUrl.textContent = url;
+  if (els.checkinOpenBtn) {
+    els.checkinOpenBtn.onclick = () => openCheckInTopLevel(url);
+  }
+  els.checkinFallback?.classList.remove('is-hidden');
+  state.checkInLoadState = 'error';
+  if (autoOpenMs > 0 && isRestrictedEmbedShell()) {
+    window.setTimeout(() => openCheckInTopLevel(url), autoOpenMs);
+  }
+}
+
+function attemptDirectCheckInFrame(url, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    if (!els.checkinFrame) {
+      resolve(false);
+      return;
+    }
+
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      els.checkinFrame.removeEventListener('load', onLoad);
+      resolve(ok);
+    };
+
+    const onLoad = () => finish(true);
+    const timer = window.setTimeout(() => finish(false), timeoutMs);
+
+    resetCheckInFrame();
+    els.checkinFrame.classList.remove('is-hidden');
+    els.checkinFrame.addEventListener('load', onLoad);
+    els.checkinFrame.src = url;
+  });
+}
+
+async function attemptProxiedCheckInFrame(url) {
+  if (!els.checkinFrame) return false;
+  try {
+    const html = await fetchThroughProxy(url);
+    const rewritten = rewriteHtmlForFraming(html, url);
+    resetCheckInFrame();
+    els.checkinFrame.srcdoc = rewritten;
+    els.checkinFrame.classList.remove('is-hidden');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadCheckInUrl(url) {
+  const normalized = normalizeCheckInUrl(url);
+  if (
+    state.checkInLoadState === 'ready'
+    && state.checkInTargetUrl === normalized
+    && (els.checkinFrame?.getAttribute('src') === normalized || els.checkinFrame?.srcdoc)
+  ) {
+    return;
+  }
+  state.checkInTargetUrl = normalized;
+  state.checkInLoadState = 'loading';
+  hideCheckInFallback();
+  els.checkinEmpty?.classList.add('is-hidden');
+  els.checkinEmbed?.classList.add('is-hidden');
+  if (els.checkinEmbed) els.checkinEmbed.innerHTML = '';
+  showCheckInLoading('Loading check-in…');
+
+  if (isRestrictedEmbedShell() && prefersTopLevelCheckIn(normalized)) {
+    openCheckInTopLevel(normalized);
+    return;
+  }
+
+  if (!isRestrictedEmbedShell()) {
+    resetCheckInFrame();
+    els.checkinFrame?.classList.remove('is-hidden');
+    if (els.checkinFrame) els.checkinFrame.src = normalized;
+    hideCheckInLoading();
+    state.checkInLoadState = 'ready';
+    state.checkInLoaded = true;
+    return;
+  }
+
+  // Fully Kiosk / Android WebView: nested and cross-origin iframes are often
+  // blocked even when desktop browsers allow them.
+  const directOk = await attemptDirectCheckInFrame(normalized, 2800);
+  if (directOk) {
+    hideCheckInLoading();
+    state.checkInLoadState = 'ready';
+    state.checkInLoaded = true;
+    return;
+  }
+
+  showCheckInLoading('Trying alternate load…');
+  const proxyOk = await attemptProxiedCheckInFrame(normalized);
+  if (proxyOk) {
+    hideCheckInLoading();
+    state.checkInLoadState = 'ready';
+    state.checkInLoaded = true;
+    return;
+  }
+
+  showCheckInFallback(normalized, { autoOpenMs: 3500 });
+}
+
+function loadCheckInRawEmbed(rawHtml) {
+  state.checkInLoadState = 'loading';
+  hideCheckInFallback();
+  els.checkinEmpty?.classList.add('is-hidden');
+  hideCheckInLoading();
+  resetCheckInFrame();
+  els.checkinFrame?.classList.add('is-hidden');
+
+  if (els.checkinEmbed) {
+    els.checkinEmbed.innerHTML = rawHtml;
+    activateEmbeddedScripts(els.checkinEmbed);
+
+    // Hoist nested iframe src into the main frame (Android WebView fix).
+    const nested = els.checkinEmbed.querySelector('iframe[src]');
+    if (nested && isRestrictedEmbedShell()) {
+      const nestedUrl = nested.getAttribute('src');
+      els.checkinEmbed.innerHTML = '';
+      if (nestedUrl) {
+        loadCheckInUrl(nestedUrl);
+        return;
+      }
+    }
+  }
+
+  els.checkinEmbed?.classList.remove('is-hidden');
+  state.checkInLoadState = 'ready';
+  state.checkInLoaded = true;
+}
+
 function renderCheckIn() {
   if (!els.viewCheckin) return;
-  const { mode, url, embed } = state.checkIn;
-  const hide = (el) => el && el.classList.add('is-hidden');
-  const show = (el) => el && el.classList.remove('is-hidden');
+  const target = resolveCheckInTarget();
 
-  hide(els.checkinLoading);
-
-  if (mode === 'embed' && embed && embed.trim()) {
-    if (els.checkinEmbed) els.checkinEmbed.innerHTML = embed;
-    activateEmbeddedScripts(els.checkinEmbed);
-    show(els.checkinEmbed);
-    hide(els.checkinFrame);
-    hide(els.checkinEmpty);
-    if (els.checkinFrame) els.checkinFrame.removeAttribute('src');
-    state.checkInLoaded = true;
-    return;
-  }
-
-  if (url && url.trim()) {
+  if (!target.url && !target.rawHtml) {
+    resetCheckInFrame();
     if (els.checkinEmbed) els.checkinEmbed.innerHTML = '';
-    if (els.checkinFrame && els.checkinFrame.getAttribute('src') !== url) {
-      els.checkinFrame.setAttribute('src', url);
-    }
-    show(els.checkinFrame);
-    hide(els.checkinEmbed);
-    hide(els.checkinEmpty);
-    state.checkInLoaded = true;
+    els.checkinFrame?.classList.add('is-hidden');
+    els.checkinEmbed?.classList.add('is-hidden');
+    hideCheckInFallback();
+    hideCheckInLoading();
+    els.checkinEmpty?.classList.remove('is-hidden');
+    state.checkInLoaded = false;
+    state.checkInLoadState = 'idle';
     return;
   }
 
-  // Nothing configured yet.
-  if (els.checkinEmbed) els.checkinEmbed.innerHTML = '';
-  if (els.checkinFrame) els.checkinFrame.removeAttribute('src');
-  hide(els.checkinFrame);
-  hide(els.checkinEmbed);
-  show(els.checkinEmpty);
-  state.checkInLoaded = false;
+  els.checkinEmpty?.classList.add('is-hidden');
+  if (target.url) {
+    loadCheckInUrl(target.url);
+    return;
+  }
+  loadCheckInRawEmbed(target.rawHtml);
 }
 
 // Inserting an embed snippet via innerHTML does NOT execute its <script> tags.
@@ -1222,6 +1437,15 @@ function activateEmbeddedScripts(container) {
 }
 
 function ensureCheckInLoaded() {
+  const target = resolveCheckInTarget();
+  const normalized = target.url ? normalizeCheckInUrl(target.url) : '';
+  if (
+    state.checkInLoaded
+    && state.checkInLoadState === 'ready'
+    && (normalized ? state.checkInTargetUrl === normalized : Boolean(target.rawHtml))
+  ) {
+    return;
+  }
   renderCheckIn();
 }
 

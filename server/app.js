@@ -117,6 +117,8 @@ export function createApp({ serveStatic = true } = {}) {
     'www.csun.edu',
     'csun.edu',
     'w2.csun.edu',
+    'forms.monday.com',
+    'monday.com',
   ]);
 
   app.get('/api/proxy', async (req, res) => {

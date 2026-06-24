@@ -447,6 +447,58 @@
   background: var(--kiosk-surface);
   z-index: 3;
 }
+.checkin-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px 24px;
+  text-align: center;
+  background: var(--kiosk-surface);
+}
+.checkin-fallback.is-hidden { display: none; }
+.checkin-fallback__icon { color: var(--csun-red); opacity: 0.85; }
+.checkin-fallback__title {
+  font-family: var(--kiosk-font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--kiosk-text);
+}
+.checkin-fallback__text {
+  color: var(--kiosk-text-secondary);
+  font-size: 0.95rem;
+  max-width: 420px;
+  line-height: 1.55;
+  margin: 0;
+}
+.checkin-fallback__btn {
+  margin-top: 6px;
+  padding: 14px 28px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d71920 0%, #a51218 100%);
+  color: #fff;
+  font-family: var(--kiosk-font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(215, 25, 32, 0.28);
+}
+.checkin-fallback__btn:active { transform: scale(0.98); }
+.checkin-fallback__url {
+  font-size: 0.78rem;
+  color: var(--kiosk-text-muted);
+  word-break: break-all;
+  max-width: 90%;
+  opacity: 0.85;
+}
+
 .checkin-empty.is-hidden { display: none; }
 .checkin-empty__icon { color: var(--csun-red); opacity: 0.85; }
 .checkin-empty__title {
@@ -1870,6 +1922,47 @@
   .kiosk-cta-primary { transition: none; }
 }
 
+/* ─── Idle kiosk ads (NeoGlass layout) ────────────────────────────────────
+   Full viewport behind the floating footer; sidebar hidden while playing. */
+body.is-idle-ad-active .kiosk-nav-rail.sidebar {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+body.is-idle-ad-active .idle-ad-overlay {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 208;
+}
+
+body.is-idle-ad-active .kiosk-dock.cta-bar {
+  z-index: 220;
+  right: 20px;
+}
+
+body.is-idle-ad-active .jobs-cart-bar.kiosk-dock--jobs {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.idle-ad-overlay__media {
+  position: absolute;
+  inset: 0;
+}
+
+.idle-ad-overlay__video,
+.idle-ad-overlay__image {
+  position: absolute;
+  inset: 0;
+  min-width: 100%;
+  min-height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
 /* ─── Portrait kiosk tuning ───────────────────────────────────────────── */
 @media (max-width: 900px) {
   :root {
@@ -1881,6 +1974,9 @@
   .kiosk-dock.cta-bar {
     left: 14px;
     right: var(--kiosk-nav-reserve);
+  }
+  body.is-idle-ad-active .kiosk-dock.cta-bar {
+    right: 14px;
   }
 }
 

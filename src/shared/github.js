@@ -260,10 +260,10 @@ export async function deleteFilesAtomically(conn, { paths, message, keepFolderPa
   return newCommit;
 }
 
-// ─── Atomic multi-file JSON commit (jobs sync, etc.) ───────────────────────
-// Updates several paths in a single commit so partial writes and SHA races
-// cannot leave jobs.json and jobs-config.json out of sync.
-export async function commitJsonFilesAtomically(conn, { files, message }) {
+// ─── Atomic multi-file commit (JSON + optional binary blobs) ───────────────
+// One commit for media + kiosk-ads.json + config.json so uploads cannot leave
+// the repo with a file in assets/ads/ but an empty ads list.
+export async function commitFilesAtomically(conn, { files, message }) {
   if (!files?.length) throw new Error('No files to commit.');
   const base = `/repos/${conn.owner}/${conn.repo}`;
 
@@ -272,12 +272,26 @@ export async function commitJsonFilesAtomically(conn, { files, message }) {
   const parentCommit = await ghFetch(conn, `${base}/git/commits/${parentSha}`);
   const baseTreeSha = parentCommit.tree.sha;
 
-  const treeEntries = files.map(({ path, data }) => ({
-    path: String(path).replace(/^\/+/, ''),
-    mode: '100644',
-    type: 'blob',
-    content: typeof data === 'string' ? data : `${JSON.stringify(data, null, 2)}\n`,
-  }));
+  const treeEntries = [];
+  for (const file of files) {
+    const filePath = String(file.path).replace(/^\/+/, '');
+    if (file.encoding === 'base64' || file.blob) {
+      const content = file.encoding === 'base64'
+        ? file.content
+        : await blobToBase64(file.blob);
+      const blob = await ghFetch(conn, `${base}/git/blobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, encoding: 'base64' }),
+      });
+      treeEntries.push({ path: filePath, mode: '100644', type: 'blob', sha: blob.sha });
+    } else {
+      const text = typeof file.data === 'string'
+        ? file.data
+        : `${JSON.stringify(file.data, null, 2)}\n`;
+      treeEntries.push({ path: filePath, mode: '100644', type: 'blob', content: text });
+    }
+  }
 
   const newTree = await ghFetch(conn, `${base}/git/trees`, {
     method: 'POST',
@@ -298,6 +312,16 @@ export async function commitJsonFilesAtomically(conn, { files, message }) {
   });
 
   return newCommit;
+}
+
+// ─── Atomic multi-file JSON commit (jobs sync, etc.) ───────────────────────
+// Updates several paths in a single commit so partial writes and SHA races
+// cannot leave jobs.json and jobs-config.json out of sync.
+export async function commitJsonFilesAtomically(conn, { files, message }) {
+  return commitFilesAtomically(conn, {
+    message,
+    files: files.map(({ path, data }) => ({ path, data })),
+  });
 }
 
 // ─── Helpers for uploads ────────────────────────────────────────────────────

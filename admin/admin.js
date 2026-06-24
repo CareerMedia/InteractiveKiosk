@@ -15,7 +15,7 @@ import {
   getSavedConnection, saveConnection, clearConnection, inferRepoDefaults,
   validateConnection,
   listDir, getFile, getJsonFile, putJsonFile, putBinaryFile, deleteFile, deleteFilesAtomically,
-  commitJsonFilesAtomically,
+  commitJsonFilesAtomically, commitFilesAtomically,
   uploadFiles, rawUrl,
 } from '../src/shared/github.js';
 import {
@@ -1510,6 +1510,7 @@ async function commitAds(data, message) {
     });
     adsState = { data, sha: null };
     configState = { data: bumped, sha: null };
+    applyAdsState(data);
   };
 
   await loadAdsFromRepo();
@@ -1523,6 +1524,11 @@ async function commitAds(data, message) {
       throw err;
     }
   }
+}
+
+function applyAdsState(data) {
+  adsState = { data, sha: null };
+  renderAdsTable();
 }
 
 async function bumpConfigForAds() {
@@ -1776,13 +1782,8 @@ async function handleAdsUpload(e) {
   try {
     const safeName = makeAdFilename(title, file.name);
     const targetPath = `${ADS_DIR}/${safeName}`;
-    await putBinaryFile(conn, {
-      path: targetPath,
-      blob: file,
-      message: `admin: upload kiosk ad ${safeName}`,
-    });
-    if (adsUploadFill) adsUploadFill.style.width = '70%';
-    if (adsUploadLabel) adsUploadLabel.textContent = 'Saving metadata…';
+    if (adsUploadFill) adsUploadFill.style.width = '30%';
+    if (adsUploadLabel) adsUploadLabel.textContent = 'Preparing commit…';
 
     await loadAdsFromRepo();
     const data = adsState.data || emptyAdsData();
@@ -1811,21 +1812,38 @@ async function handleAdsUpload(e) {
       ads: [...(data.ads || []), record],
     };
     next.meta = {
+      ...(data.meta || emptyAdsData().meta),
       ...next.meta,
       lastUpdatedAt: now,
       totalAds: next.ads.length,
     };
 
-    await commitAds(next, `admin: add kiosk ad ${record.id}`);
+    if (adsUploadFill) adsUploadFill.style.width = '55%';
+    if (adsUploadLabel) adsUploadLabel.textContent = 'Committing media and metadata…';
+
+    const bumped = await bumpConfigForAds();
+    await commitFilesAtomically(conn, {
+      message: `admin: add kiosk ad ${record.id}`,
+      files: [
+        { path: targetPath, blob: file },
+        { path: ADS_JSON_PATH, data: next },
+        { path: CONFIG_PATH, data: bumped },
+      ],
+    });
+
+    adsState = { data: next, sha: null };
+    configState = { data: bumped, sha: null };
+    applyAdsState(next);
+
     if (adsUploadFill) adsUploadFill.style.width = '100%';
     if (adsUploadLabel) adsUploadLabel.textContent = 'Done.';
-    toast(adsToast, 'Ad uploaded successfully.', 'success');
+    toast(adsToast, 'Ad uploaded and added to the active list.', 'success');
     adsUploadForm?.reset();
     if (adsActiveInput) adsActiveInput.checked = true;
-    await loadAdsTab();
   } catch (err) {
-    toast(adsToast, 'Ad upload failed. Please check the file type, file size, and try again.', 'error', 8000);
-    if (adsUploadLabel) adsUploadLabel.textContent = err.message;
+    console.error('[admin] ad upload failed', err);
+    toast(adsToast, `Ad upload failed: ${err.message || 'Please check the file and try again.'}`, 'error', 8000);
+    if (adsUploadLabel) adsUploadLabel.textContent = err.message || 'Upload failed';
   } finally {
     if (adsUploadBtn) { adsUploadBtn.disabled = false; adsUploadBtn.textContent = prev; }
     setTimeout(() => adsUploadProgress?.classList.add('is-hidden'), 1600);
