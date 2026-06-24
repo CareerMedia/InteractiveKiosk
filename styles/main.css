@@ -324,6 +324,7 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
 .partner-scroll-shell.is-marquee .partner-track {
   width: max-content;
   justify-content: flex-start;
+  will-change: transform;
   animation: partner-marquee var(--partner-duration, 45s) linear infinite;
 }
 
@@ -354,7 +355,7 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   background: linear-gradient(90deg, transparent, var(--red), transparent);
   opacity: 0.85;
 }
-.partner-logo-card img { max-height: 36px; max-width: 104px; object-fit: contain; }
+.partner-logo-card img { max-height: 36px; max-width: 104px; object-fit: contain; transform: translateZ(0); }
 .partner-empty-hint { color: var(--ink-soft); font-size: 0.82rem; font-style: italic; padding: 6px 10px; }
 
 @keyframes partner-marquee {
@@ -438,7 +439,6 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   min-height: 0;
   min-width: 0;
   border-radius: 10px;
-  contain: layout style;
   transform: translateZ(0);
 }
 
@@ -568,6 +568,8 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   height: auto;
   object-fit: contain;
   filter: saturate(1.05);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .ticker-empty {

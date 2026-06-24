@@ -442,29 +442,87 @@ async function fetchLogosFromGitHub(dir) {
 // ─── OUR EMPLOYER PARTNERS ───────────────────────────────
 // Row is centered by default. If the logos overflow the shell, clone the row
 // and kick off a seamless left→right marquee.
+
+function preloadLogoImage(img) {
+  return new Promise((resolve) => {
+    const finish = () => {
+      if (typeof img.decode === 'function') {
+        img.decode().then(resolve).catch(resolve);
+      } else {
+        resolve();
+      }
+    };
+    if (img.complete && img.naturalWidth > 0) {
+      finish();
+      return;
+    }
+    img.addEventListener('load', finish, { once: true });
+    img.addEventListener('error', resolve, { once: true });
+  });
+}
+
+async function waitForImages(root) {
+  if (!root) return;
+  const imgs = [...root.querySelectorAll('img')];
+  if (!imgs.length) return;
+  await Promise.all(imgs.map(preloadLogoImage));
+}
+
 function buildPartnerCards(target) {
   state.partnerLogos.forEach((logo) => {
     const card = document.createElement('div');
     card.className = 'partner-logo-card';
     const img = document.createElement('img');
-    // Eager load + async decode: these logos live inside a transform-animated
-    // marquee (and a cloned copy), where `loading="lazy"` makes the browser
-    // treat the off-transform cards as out-of-viewport and never paint them —
-    // leaving blank cards until an interaction forces a repaint.
+    // Eager load + async decode: logos sit inside a transform-animated marquee
+    // (and a cloned copy). Lazy loading and painting before decode leave blank
+    // cards on kiosk WebViews until an interaction forces a repaint.
     img.loading = 'eager';
     img.decoding = 'async';
+    img.fetchPriority = 'high';
     img.alt = logo.name;
     img.src = logo.src;
+    img.addEventListener('load', () => card.classList.add('is-ready'), { once: true });
+    img.addEventListener('error', () => card.classList.add('is-ready'), { once: true });
     card.appendChild(img);
     target.appendChild(card);
   });
 }
 
-function renderPartnerRow() {
+async function enablePartnerMarquee(primary) {
+  const shell = els.partnerScrollShell;
+  if (!shell || !primary) return;
+
+  await waitForImages(primary);
+
+  // Two frames so scrollWidth reflects decoded image dimensions.
+  await new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+
+  const overflow = primary.scrollWidth > shell.clientWidth + 4;
+  if (!overflow) return;
+
+  shell.classList.remove('is-marquee');
+  const existingClone = els.partnerTrack?.querySelector('.partner-logos-row[aria-hidden="true"]');
+  existingClone?.remove();
+
+  const clone = document.createElement('div');
+  clone.className = 'partner-logos-row';
+  clone.setAttribute('aria-hidden', 'true');
+  buildPartnerCards(clone);
+  els.partnerTrack.appendChild(clone);
+  await waitForImages(clone);
+
+  const duration = Math.max(24, Math.round(state.partnerLogos.length * 2.2));
+  els.partnerTrack.style.setProperty('--partner-duration', `${duration}s`);
+  shell.classList.add('is-marquee');
+}
+
+async function renderPartnerRow() {
   if (!els.partnerTrack || !els.partnerLogosRow) return;
 
-  // Reset any previous marquee state
-  els.partnerScrollShell.classList.remove('is-marquee');
+  els.partnerScrollShell?.classList.remove('is-marquee');
+  els.partnerTrack.style.removeProperty('--partner-duration');
   clearChildren(els.partnerTrack);
 
   if (!state.partnerLogos.length) {
@@ -480,7 +538,6 @@ function renderPartnerRow() {
     return;
   }
 
-  // Build primary row (re-used both for center layout and marquee).
   const primary = document.createElement('div');
   primary.className = 'partner-logos-row';
   primary.id = 'partner-logos-row';
@@ -488,24 +545,7 @@ function renderPartnerRow() {
   els.partnerTrack.appendChild(primary);
   els.partnerLogosRow = primary;
 
-  // Measure overflow after layout. If the row is wider than the shell,
-  // clone it once for a seamless loop and enable the marquee.
-  requestAnimationFrame(() => {
-    const shell = els.partnerScrollShell;
-    const overflow = primary.scrollWidth > shell.clientWidth + 4;
-    if (!overflow) return;
-
-    const clone = document.createElement('div');
-    clone.className = 'partner-logos-row';
-    clone.setAttribute('aria-hidden', 'true');
-    buildPartnerCards(clone);
-    els.partnerTrack.appendChild(clone);
-
-    // Scale duration with the number of logos — keeps motion readable.
-    const duration = Math.max(24, Math.round(state.partnerLogos.length * 2.2));
-    els.partnerTrack.style.setProperty('--partner-duration', `${duration}s`);
-    shell.classList.add('is-marquee');
-  });
+  await enablePartnerMarquee(primary);
 }
 
 // ─── PARTICIPATING EMPLOYERS — 3-column vertical marquee ──
@@ -529,14 +569,14 @@ function makeTickerCard(logo) {
   const logoWrap = document.createElement('div');
   logoWrap.className = 'ticker-card__logo';
   const img = document.createElement('img');
-  // Eager load + async decode: cards sit inside a translate-animated, duplicated
-  // marquee column where `loading="lazy"` causes blank/missing cards (the browser
-  // treats the off-transform copies as out-of-viewport) until a click repaints.
   img.loading = 'eager';
   img.decoding = 'async';
+  img.fetchPriority = 'high';
   img.draggable = false;
   img.alt = logo.name || '';
   img.src = logo.src;
+  img.addEventListener('load', () => card.classList.add('is-ready'), { once: true });
+  img.addEventListener('error', () => card.classList.add('is-ready'), { once: true });
   logoWrap.appendChild(img);
   card.appendChild(logoWrap);
 
@@ -553,7 +593,7 @@ function buildTickerChunk(logos, colIndex, ariaHidden) {
   return chunk;
 }
 
-function buildTicker() {
+async function buildTicker() {
   if (!els.tickerGrid) return;
   clearChildren(els.tickerGrid);
 
@@ -578,6 +618,7 @@ function buildTicker() {
 
     const track = document.createElement('div');
     track.className = 'ticker-column__track';
+    track.style.setProperty('--col-delay', `${colIndex * -12}s`);
 
     track.appendChild(buildTickerChunk(logos, colIndex, false));
     track.appendChild(buildTickerChunk(logos, colIndex, true));
@@ -586,6 +627,7 @@ function buildTicker() {
     els.tickerGrid.appendChild(col);
   });
 
+  await waitForImages(els.tickerGrid);
   setupTickerInteraction();
 }
 
@@ -1236,19 +1278,33 @@ function resetCheckInFrame() {
   els.checkinFrame.removeAttribute('src');
 }
 
+function withCheckInCacheBust(url) {
+  try {
+    const u = new URL(url, window.location.href);
+    u.searchParams.set('_kiosk', String(Date.now()));
+    return u.toString();
+  } catch {
+    const sep = String(url).includes('?') ? '&' : '?';
+    return `${url}${sep}_kiosk=${Date.now()}`;
+  }
+}
+
+function resetCheckInOnLeave() {
+  resetCheckInFrame();
+  if (els.checkinEmbed) els.checkinEmbed.innerHTML = '';
+  els.checkinFrame?.classList.add('is-hidden');
+  els.checkinEmbed?.classList.add('is-hidden');
+  hideCheckInLoading();
+  state.checkInLoaded = false;
+  state.checkInLoadState = 'idle';
+  state.checkInTargetUrl = '';
+}
+
 // Embed a plain URL directly in the Check In iframe. Submit buttons keep
 // working because it's a live iframe, not a proxied snapshot.
 function loadCheckInUrl(url) {
   const normalized = normalizeCheckInUrl(url);
-  if (
-    state.checkInLoadState === 'ready'
-    && state.checkInTargetUrl === normalized
-    && els.checkinFrame
-    && !els.checkinFrame.classList.contains('is-hidden')
-    && els.checkinFrame.getAttribute('src') === normalized
-  ) {
-    return;
-  }
+  const busted = withCheckInCacheBust(normalized);
 
   state.checkInTargetUrl = normalized;
   state.checkInLoadState = 'loading';
@@ -1266,10 +1322,8 @@ function loadCheckInUrl(url) {
   if (els.checkinFrame) {
     els.checkinFrame.onload = onLoad;
     resetCheckInFrame();
-    els.checkinFrame.src = normalized;
+    els.checkinFrame.src = busted;
     els.checkinFrame.classList.remove('is-hidden');
-    // Safety: hide the spinner even if the load event doesn't fire (some
-    // forms keep their connection open). The iframe stays embedded regardless.
     window.setTimeout(() => {
       if (state.checkInLoadState === 'loading') onLoad();
     }, 6000);
@@ -1278,18 +1332,25 @@ function loadCheckInUrl(url) {
 
 // Embed a raw provider snippet (full <iframe>/<script> embed code) directly.
 function loadCheckInRawEmbed(rawHtml) {
+  const html = normalizeEmbedHtml(rawHtml).replace(
+    /(<iframe[^>]*\ssrc=["'])([^"']+)(["'])/i,
+    (_m, pre, src, post) => `${pre}${withCheckInCacheBust(normalizeCheckInUrl(src))}${post}`,
+  );
+
   state.checkInLoadState = 'loading';
   els.checkinEmpty?.classList.add('is-hidden');
-  hideCheckInLoading();
+  showCheckInLoading();
   resetCheckInFrame();
   els.checkinFrame?.classList.add('is-hidden');
 
   if (els.checkinEmbed) {
-    els.checkinEmbed.innerHTML = rawHtml;
+    els.checkinEmbed.innerHTML = '';
+    els.checkinEmbed.innerHTML = html;
     activateEmbeddedScripts(els.checkinEmbed);
     els.checkinEmbed.classList.remove('is-hidden');
   }
 
+  hideCheckInLoading();
   state.checkInLoadState = 'ready';
   state.checkInLoaded = true;
 }
@@ -1331,15 +1392,6 @@ function activateEmbeddedScripts(container) {
 }
 
 function ensureCheckInLoaded() {
-  const target = resolveCheckInTarget();
-  const normalized = target.url ? normalizeCheckInUrl(target.url) : '';
-  if (
-    state.checkInLoaded
-    && state.checkInLoadState === 'ready'
-    && (normalized ? state.checkInTargetUrl === normalized : Boolean(target.rawHtml))
-  ) {
-    return;
-  }
   renderCheckIn();
 }
 
@@ -1366,6 +1418,10 @@ function setView(viewId) {
   updateHeaderContext(viewId);
 
   if (viewId !== 'map') closeMobileMapModal();
+
+  if (previousView === 'checkin' && viewId !== 'checkin') {
+    resetCheckInOnLeave();
+  }
 
   // Map view: lock OS/browser pinch-zoom to the page shell so only the map iframe zooms.
   setShellZoomForMap(viewId === 'map');
@@ -1596,7 +1652,7 @@ function bindEvents() {
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (state.partnerLogos.length) renderPartnerRow();
+      if (state.partnerLogos.length) void renderPartnerRow();
     }, 200);
   });
 }
@@ -1627,8 +1683,8 @@ async function loadLogos({ forceRefresh = false } = {}) {
     await loadLogos({ forceRefresh: true });
     return;
   }
-  buildTicker();
-  renderPartnerRow();
+  await buildTicker();
+  await renderPartnerRow();
   updateHomeStats();
 }
 
@@ -1691,6 +1747,12 @@ async function init() {
   prefetchWebContent(URL_CONFIG.website);
   prefetchWebContent(URL_CONFIG.partners);
   setView('home');
+  // Re-measure partner marquee after the home shell finishes layout.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (state.partnerLogos.length) void renderPartnerRow();
+    });
+  });
 }
 
 init();
