@@ -26,9 +26,13 @@
   --kiosk-shadow-red:
     0 18px 42px rgba(215, 25, 32, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.36);
-  --kiosk-hero-height: clamp(260px, 36vh, 400px);
+  --kiosk-hero-height: clamp(240px, 34vh, 380px);
   --kiosk-dock-height: 88px;
-  --kiosk-nav-w: 88px;
+  --kiosk-nav-w: 100px;
+  --kiosk-nav-float-gap: 22px;
+  --kiosk-nav-reserve: calc(var(--kiosk-nav-w) + var(--kiosk-nav-float-gap) + 16px);
+  --kiosk-content-pad-x: 40px;
+  --kiosk-nav-min-height: min(1440px, calc(100dvh - 96px));
   --kiosk-blur-heavy: blur(44px) saturate(185%);
 }
 
@@ -55,6 +59,17 @@
   grid-template-rows: 1fr;
 }
 
+.app:not([data-view="map"]) .stage-body {
+  padding-right: var(--kiosk-nav-reserve);
+  padding-bottom: calc(var(--kiosk-dock-height) + 12px);
+  box-sizing: border-box;
+}
+
+.app:not([data-view="map"]) .topbar {
+  padding-right: calc(16px + var(--kiosk-nav-reserve));
+  box-sizing: border-box;
+}
+
 .app[data-view="home"] .stage-body {
   background: var(--kiosk-bg);
   min-height: 0;
@@ -76,12 +91,13 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  padding: 0 0 calc(var(--kiosk-dock-height) + 20px);
-  padding-right: calc(var(--kiosk-nav-w) + 12px);
+  padding: 0 0 calc(var(--kiosk-dock-height) + 16px);
 }
 
-.kiosk-hero,
-.kiosk-stats,
+.kiosk-hero {
+  flex-shrink: 0;
+}
+
 .kiosk-partners-section {
   flex-shrink: 0;
 }
@@ -104,17 +120,16 @@
 /* ─── Hero ────────────────────────────────────────────────────────────── */
 .kiosk-hero {
   position: relative;
-  min-height: var(--kiosk-hero-height);
-  padding: 32px 40px 8px;
+  min-height: auto;
+  padding: 32px var(--kiosk-content-pad-x) 6px;
   overflow: hidden;
   isolation: isolate;
-  flex-shrink: 0;
 }
 
 .kiosk-hero__bg {
   position: absolute;
-  inset: 0 0 0 0;
-  height: 100%;
+  inset: 0;
+  min-height: var(--kiosk-hero-height);
   background: var(--kiosk-bg);
   background-size: cover;
   background-position: center top;
@@ -135,7 +150,10 @@
 .kiosk-hero__content {
   position: relative;
   z-index: 2;
-  max-width: 720px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .kiosk-hero__toprow {
@@ -229,7 +247,7 @@
   line-height: 1.45;
   color: var(--kiosk-text-secondary);
   max-width: 34ch;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .kiosk-cta-primary {
@@ -271,14 +289,14 @@
   opacity: 0.9;
 }
 
-/* ─── Stats pill (thin horizontal) ───────────────────────────────────── */
+/* ─── Stats pill (thin horizontal, inside hero) ─────────────────────── */
 .kiosk-stats--pill {
   display: flex;
   align-items: center;
   justify-content: space-evenly;
   flex-shrink: 0;
-  align-self: stretch;
-  margin: 10px 40px 6px;
+  width: 100%;
+  margin: 10px 0 0;
   padding: 8px 12px;
   border-radius: var(--kiosk-radius-pill);
 }
@@ -358,7 +376,13 @@
 
 /* ─── Sections ────────────────────────────────────────────────────────── */
 .kiosk-section {
-  padding: 0 40px 6px;
+  padding: 0 var(--kiosk-content-pad-x) 6px;
+}
+
+.kiosk-partners-section.featured-section {
+  padding: 0 var(--kiosk-content-pad-x) 6px;
+  border: none;
+  background: transparent;
 }
 
 .kiosk-section__head {
@@ -431,12 +455,6 @@
 }
 
 /* ─── Partners carousel (glass cards) ─────────────────────────────────── */
-.kiosk-partners-section.featured-section {
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
 .kiosk-partners-section .partner-scroll-shell {
   padding: 10px 12px;
   margin: 0;
@@ -475,7 +493,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 0 40px 4px;
+  padding: 0 var(--kiosk-content-pad-x) 4px;
   gap: 6px;
 }
 
@@ -526,7 +544,6 @@
   transform: translateY(-50%);
   width: var(--kiosk-nav-w);
   height: auto;
-  max-height: calc(100dvh - 140px);
   grid-column: unset;
   grid-row: unset;
   background: transparent;
@@ -539,7 +556,8 @@
 
 .kiosk-nav-rail__shell {
   pointer-events: auto;
-  padding: 7px;
+  padding: 8px;
+  min-height: var(--kiosk-nav-min-height);
   border-radius: var(--kiosk-radius-pill);
   background: rgba(255, 255, 255, 0.42);
   backdrop-filter: var(--kiosk-blur-heavy);
@@ -548,35 +566,34 @@
   box-shadow:
     0 20px 56px rgba(15, 23, 42, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  display: flex;
+  flex-direction: column;
 }
 
 .kiosk-nav-rail__frame {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  border-radius: calc(var(--kiosk-radius-pill) - 6px);
+  flex: 1;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: calc(var(--kiosk-radius-pill) - 8px);
   background: rgba(255, 255, 255, 0.58);
   backdrop-filter: blur(28px) saturate(165%);
   -webkit-backdrop-filter: blur(28px) saturate(165%);
   border: 1px solid rgba(255, 255, 255, 0.82);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-
-.kiosk-nav-rail__frame::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
+  justify-content: flex-start;
 }
 
 .kiosk-nav-rail .sidebar-item {
-  min-height: 58px;
-  padding: 8px 4px;
+  min-height: 62px;
+  padding: 10px 6px;
   margin: 0;
   border: none;
   border-radius: 999px;
   background: transparent;
+  flex-shrink: 0;
   transition: background 180ms ease, box-shadow 180ms ease, transform 150ms ease;
 }
 
@@ -621,8 +638,8 @@
 .kiosk-nav-rail .sidebar-spacer {
   border: none;
   background: transparent;
-  flex: 0 0 6px;
-  min-height: 6px;
+  flex: 1 1 auto;
+  min-height: 32px;
 }
 
 .kiosk-nav-rail .sidebar-item--home {
@@ -642,7 +659,7 @@
   position: fixed;
   bottom: 16px;
   left: 20px;
-  right: calc(var(--kiosk-nav-w) + 28px);
+  right: var(--kiosk-nav-reserve);
   grid-column: unset;
   grid-row: unset;
   display: flex;
@@ -704,10 +721,19 @@
   flex-shrink: 0;
 }
 
-/* Non-home views: pad content above floating dock */
-.app:not([data-view="map"]) .stage-body {
-  padding-bottom: calc(var(--kiosk-dock-height) + 12px);
-  padding-right: calc(var(--kiosk-nav-w) + 8px);
+/* Non-home views: content stays left of floating nav (stage-body rule above) */
+.app:not([data-view="map"]) .main-panel {
+  right: 0;
+  left: 0;
+}
+
+/* Modals & popups above floating nav + dock */
+.modal-backdrop {
+  z-index: 320;
+}
+
+.modal-backdrop--mobile-map {
+  z-index: 330;
 }
 
 /* ─── Reduced motion ──────────────────────────────────────────────────── */
@@ -719,13 +745,14 @@
 
 /* ─── Portrait kiosk tuning ───────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .kiosk-hero { padding: 28px 24px 8px; }
-  .kiosk-stats--pill { margin-left: 24px; margin-right: 24px; }
-  .kiosk-section { padding-left: 24px; padding-right: 24px; }
-  .kiosk-attendees-section.attendees-section { padding-left: 24px; padding-right: 24px; }
+  :root {
+    --kiosk-content-pad-x: 24px;
+    --kiosk-nav-reserve: calc(var(--kiosk-nav-w) + 18px);
+  }
+  .kiosk-hero { padding-left: var(--kiosk-content-pad-x); padding-right: var(--kiosk-content-pad-x); }
   .kiosk-dock.cta-bar {
     left: 14px;
-    right: calc(var(--kiosk-nav-w) + 18px);
+    right: var(--kiosk-nav-reserve);
   }
 }
 
