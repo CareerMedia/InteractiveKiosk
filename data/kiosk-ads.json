@@ -1,11 +1,11 @@
 {
   "meta": {
-    "lastUpdatedAt": "2026-06-24T18:17:36.315Z",
+    "lastUpdatedAt": "2026-06-24T18:21:39.764Z",
     "totalAds": 1,
     "idleDelayMs": 180000,
     "imageSlideDurationMs": 10000,
     "randomize": true,
-    "testIdleAdsAt": null
+    "testIdleAdsAt": "2026-06-24T18:21:39.764Z"
   },
   "ads": [
     {
