@@ -124,6 +124,8 @@ const els = {
   // Mobile map QR (map view header)
   mobileMapPopup:     document.getElementById('mobile-map-popup'),
   mobileMapCloseX:    document.getElementById('mobile-map-close-x'),
+  mobileMapQrImage:   document.getElementById('mobile-map-qr-image'),
+  mobileMapQrFallback: document.getElementById('mobile-map-qr-fallback'),
 
   // Event detail modal
   eventModal:         document.getElementById('event-detail-modal'),
@@ -1325,9 +1327,21 @@ function bindEvents() {
     });
   }
 
+  if (els.mobileMapQrImage) {
+    els.mobileMapQrImage.addEventListener('error', () => {
+      els.mobileMapQrImage.classList.add('is-hidden');
+      els.mobileMapQrFallback?.classList.remove('is-hidden');
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && els.popup && !els.popup.classList.contains('is-hidden')) {
+    if (e.key !== 'Escape') return;
+    if (els.popup && !els.popup.classList.contains('is-hidden')) {
       closePopup();
+      return;
+    }
+    if (els.mobileMapPopup && !els.mobileMapPopup.classList.contains('is-hidden')) {
+      closeMobileMapModal();
     }
   });
 

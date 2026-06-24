@@ -468,19 +468,43 @@
       </div>
 
       <!-- ══════════════════════════════════════
-           MOBILE MAP QR (map view header only)
+           MOBILE MAP QR (map view header only) — NeoGlass
       ═══════════════════════════════════════ -->
-      <div class="modal-backdrop modal-backdrop--mobile-map is-hidden" id="mobile-map-popup" role="dialog" aria-modal="true" aria-labelledby="mobile-map-title">
+      <div class="modal-backdrop mobile-map-backdrop modal-backdrop--mobile-map is-hidden" id="mobile-map-popup" role="dialog" aria-modal="true" aria-labelledby="mobile-map-title" aria-describedby="mobile-map-desc">
         <div class="mobile-map-modal">
-          <button class="modal-close-x" id="mobile-map-close-x" type="button" aria-label="Close">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
-          </button>
-          <div class="modal-kicker">On the go</div>
-          <h2 class="modal-title" id="mobile-map-title">Mobile career fair map</h2>
-          <p class="modal-copy">Scan this code with your phone to open the mobile-friendly map.</p>
-          <div class="mobile-map-qr-wrap">
-            <img src="./assets/qr/mobile-map.png" alt="" class="mobile-map-qr" width="280" height="280" />
+          <div class="mobile-map-modal__glow" aria-hidden="true"></div>
+
+          <header class="mobile-map-modal__header">
+            <div class="mobile-map-modal__pill">
+              <svg class="mobile-map-modal__pill-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              On the go
+            </div>
+            <button class="mobile-map-modal__close" id="mobile-map-close-x" type="button" aria-label="Close mobile map QR code">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6"/></svg>
+            </button>
+          </header>
+
+          <h2 class="mobile-map-modal__title" id="mobile-map-title">Mobile career fair map</h2>
+          <p class="mobile-map-modal__desc" id="mobile-map-desc">Scan this code with your phone to open the mobile-friendly map.</p>
+
+          <div class="mobile-map-modal__qr-surface">
+            <img
+              src="./assets/qr/mobile-map.png"
+              alt="QR code to open the mobile career fair map"
+              class="mobile-map-modal__qr"
+              id="mobile-map-qr-image"
+              width="400"
+              height="400"
+            />
+            <p class="mobile-map-modal__qr-fallback is-hidden" id="mobile-map-qr-fallback">QR code unavailable. Please use the map on this kiosk.</p>
           </div>
+
+          <p class="mobile-map-modal__hint">
+            <span class="mobile-map-modal__hint-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+            </span>
+            Open your camera and point it at the code.
+          </p>
         </div>
       </div>
 
