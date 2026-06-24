@@ -94,21 +94,25 @@
                   </div>
                 </header>
 
-                <div class="kiosk-stats glass-panel" id="kiosk-stats" aria-label="Fair statistics">
+                <div class="kiosk-stats glass-panel kiosk-stats--pill" id="kiosk-stats" aria-label="Fair statistics">
                   <div class="kiosk-stat">
                     <div class="kiosk-stat__badge" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 21v-6h6v6"/></svg>
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 21v-6h6v6"/></svg>
                     </div>
-                    <div class="kiosk-stat__value" id="stat-employers" data-loading="true">—</div>
-                    <div class="kiosk-stat__label">Employers</div>
+                    <div class="kiosk-stat__copy">
+                      <div class="kiosk-stat__value" id="stat-employers" data-loading="true">—</div>
+                      <div class="kiosk-stat__label">Employers</div>
+                    </div>
                   </div>
                   <div class="kiosk-stat__divider" aria-hidden="true"></div>
                   <div class="kiosk-stat">
-                    <div class="kiosk-stat__badge" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+                    <div class="kiosk-stat__badge kiosk-stat__badge--jobs" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
                     </div>
-                    <div class="kiosk-stat__value" id="stat-opportunities" data-loading="true">—</div>
-                    <div class="kiosk-stat__label">Opportunities</div>
+                    <div class="kiosk-stat__copy">
+                      <div class="kiosk-stat__value" id="stat-opportunities" data-loading="true">—</div>
+                      <div class="kiosk-stat__label">Opportunities</div>
+                    </div>
                   </div>
                 </div>
 
@@ -116,7 +120,9 @@
                 <section class="kiosk-section kiosk-partners-section featured-section" aria-labelledby="kiosk-partners-title">
                   <div class="kiosk-section__head">
                     <h2 class="kiosk-section__title" id="kiosk-partners-title">
-                      <span class="kiosk-section__spark" aria-hidden="true">✦</span>
+                      <span class="kiosk-section__title-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M5 19l1 3 1-3 3-1-3-1-1-3-1 3-3 1 3 1z"/><path d="M19 13l.8 2.4 2.4.8-2.4.8-.8 2.4-.8-2.4-2.4-.8 2.4-.8.8-2.4z"/></svg>
+                      </span>
                       Our Employer Partners
                     </h2>
                     <button type="button" class="kiosk-section__link" data-view-link="partners">View all <span aria-hidden="true">›</span></button>
@@ -134,7 +140,9 @@
                 <section class="kiosk-section kiosk-attendees-section attendees-section" aria-labelledby="kiosk-attendees-title">
                   <div class="kiosk-section__head">
                     <h2 class="kiosk-section__title" id="kiosk-attendees-title">
-                      <svg class="kiosk-section__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      <span class="kiosk-section__title-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      </span>
                       Participating Employers
                     </h2>
                     <span class="kiosk-section__hint">Scroll to discover <span aria-hidden="true">↓</span></span>
@@ -307,6 +315,8 @@
              SIDEBAR  (single, light grey menu)
         ═══════════════════════════════════════ -->
         <aside class="sidebar kiosk-nav-rail" aria-label="Directory">
+          <div class="kiosk-nav-rail__shell">
+            <div class="kiosk-nav-rail__frame">
           <button class="sidebar-item" data-view="map" type="button">
             <div class="sidebar-item__icon">
               <svg viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
@@ -350,12 +360,15 @@
             </div>
             <span class="sidebar-item__label">Home</span>
           </button>
+            </div>
+          </div>
         </aside>
 
         <!-- ══════════════════════════════════════
              FOOTER (hidden in Map view)
         ═══════════════════════════════════════ -->
         <footer class="cta-bar kiosk-dock" id="cta-bar">
+          <div class="kiosk-dock__sparkle" aria-hidden="true">✦</div>
           <div class="cta-copy">
             <div class="cta-label" id="cta-label">Let's get you started.</div>
             <p class="cta-text" id="cta-text">Find employers, jobs, and booth locations in seconds.</p>
