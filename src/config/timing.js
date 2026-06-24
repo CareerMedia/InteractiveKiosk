@@ -8,4 +8,7 @@ export const TIMING_CONFIG = {
   // `version` counter in config.json as part of the cache key, which
   // invalidates these entries any time the admin commits a change.
   logoCacheTtlMs: 1000 * 60 * 5,
+  idleAdDelayMs: 180_000,
+  idleAdImageSlideMs: 10_000,
+  idleAdTestPollMs: 15_000,
 };

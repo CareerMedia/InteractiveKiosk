@@ -5,7 +5,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "data/**,assets/employers/**",
+      "includeFiles": "data/**,assets/employers/**,assets/ads/**",
       "maxDuration": 60
     }
   }

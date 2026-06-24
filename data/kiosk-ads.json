@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "lastUpdatedAt": null,
+    "totalAds": 0,
+    "idleDelayMs": 180000,
+    "imageSlideDurationMs": 10000,
+    "randomize": true,
+    "testIdleAdsAt": null
+  },
+  "ads": []
+}

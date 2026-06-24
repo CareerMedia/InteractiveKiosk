@@ -13,7 +13,7 @@ import { MAP_CONFIG } from '../src/config/map.js';
 import {
   getSavedConnection, saveConnection, clearConnection, inferRepoDefaults,
   validateConnection,
-  listDir, getJsonFile, putJsonFile, deleteFile, deleteFilesAtomically,
+  listDir, getFile, getJsonFile, putJsonFile, putBinaryFile, deleteFile, deleteFilesAtomically,
   commitJsonFilesAtomically,
   uploadFiles, rawUrl,
 } from '../src/shared/github.js';
@@ -25,6 +25,15 @@ import {
 } from '../src/shared/jobs-parser.js';
 import { URL_CONFIG } from '../src/config/urls.js';
 import { apiUrl, isApiAvailable, invalidateApiBaseCache } from '../src/shared/api-base.js';
+import {
+  emptyAdsData,
+  validateAdFile,
+  makeAdFilename,
+  createAdId,
+  formatFileSize,
+  ADS_JSON_PATH,
+  ADS_DIR,
+} from '../src/shared/ads-constants.js';
 
 // ─── Config ─────────────────────────────────────────────
 const ADMIN_PASSWORD = 'career1';
@@ -1062,16 +1071,435 @@ function wireJobsTab() {
   });
 }
 
+// ─── Kiosk Ads tab ──────────────────────────────────────
+const adsUploadForm     = $('ads-upload-form');
+const adsTitleInput     = $('ads-title-input');
+const adsFileInput      = $('ads-file-input');
+const adsStartDate      = $('ads-start-date');
+const adsEndDate        = $('ads-end-date');
+const adsActiveInput    = $('ads-active-input');
+const adsUploadBtn      = $('ads-upload-btn');
+const adsUploadProgress = $('ads-upload-progress');
+const adsUploadFill     = adsUploadProgress?.querySelector('.upload-progress__fill');
+const adsUploadLabel    = adsUploadProgress?.querySelector('.upload-progress__label');
+const adsToast          = $('ads-toast');
+const adsTableBody      = $('ads-table-body');
+const adsTotalCount     = $('ads-total-count');
+const adsActiveCount    = $('ads-active-count');
+const adsTestIdleBtn    = $('ads-test-idle-btn');
+const adsTestStatus     = $('ads-test-status');
+const adsPreviewBackdrop = $('ads-preview-backdrop');
+const adsPreviewMedia   = $('ads-preview-media');
+const adsPreviewTitle   = $('ads-preview-title');
+const adsPreviewClose   = $('ads-preview-close');
+
+let adsState = { data: emptyAdsData(), sha: null };
+
+async function loadAdsFromRepo() {
+  const file = await getJsonFile(conn, ADS_JSON_PATH);
+  adsState = { data: file.data || emptyAdsData(), sha: file.sha };
+  return adsState;
+}
+
+async function commitAds(data, message) {
+  const write = async () => {
+    const bumped = await bumpConfigForAds();
+    await commitJsonFilesAtomically(conn, {
+      message,
+      files: [
+        { path: ADS_JSON_PATH, data },
+        { path: CONFIG_PATH, data: bumped },
+      ],
+    });
+    adsState = { data, sha: null };
+    configState = { data: bumped, sha: null };
+  };
+
+  await loadAdsFromRepo();
+  try {
+    await write();
+  } catch (err) {
+    if (err.status === 409) {
+      await loadAdsFromRepo();
+      await write();
+    } else {
+      throw err;
+    }
+  }
+}
+
+async function bumpConfigForAds() {
+  await loadConfigFromRepo();
+  const current = configState.data || {};
+  return {
+    ...current,
+    mapUrl: current.mapUrl || MAP_CONFIG.embedUrl,
+    apiBaseUrl: current.apiBaseUrl || '',
+    version: Number(current.version || 0) + 1,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function adPreviewUrl(ad) {
+  const src = ad.thumbnailSrc || ad.src;
+  if (!src) return '';
+  return rawUrl(conn, src.replace(/^\//, ''), true);
+}
+
+function adMediaUrl(ad) {
+  if (!ad?.src) return '';
+  return rawUrl(conn, ad.src.replace(/^\//, ''), true);
+}
+
+function renderAdsTable() {
+  const data = adsState.data || emptyAdsData();
+  const ads = [...(data.ads || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const now = new Date();
+
+  const activeN = ads.filter((ad) => {
+    if (!ad.active) return false;
+    if (ad.startDate && new Date(ad.startDate) > now) return false;
+    if (ad.endDate) {
+      const end = new Date(ad.endDate);
+      end.setHours(23, 59, 59, 999);
+      if (end < now) return false;
+    }
+    return true;
+  }).length;
+
+  if (adsTotalCount) adsTotalCount.textContent = `${ads.length} ad${ads.length === 1 ? '' : 's'}`;
+  if (adsActiveCount) adsActiveCount.textContent = `${activeN} active`;
+  if (adsTestStatus) {
+    const at = data.meta?.testIdleAdsAt;
+    adsTestStatus.textContent = at
+      ? `Last test signal: ${new Date(at).toLocaleString()}`
+      : 'No test signal sent yet.';
+  }
+  if (adsTestIdleBtn) {
+    adsTestIdleBtn.disabled = activeN === 0;
+    adsTestIdleBtn.title = activeN === 0
+      ? 'Upload at least one active ad first.'
+      : 'Force all kiosks to enter idle ad mode within ~15 seconds.';
+  }
+
+  if (!ads.length) {
+    adsTableBody.innerHTML = '<tr><td colspan="8" class="jobs-admin-empty">No ads uploaded yet. Upload a vertical video or image to start showing idle kiosk ads.</td></tr>';
+    return;
+  }
+
+  adsTableBody.innerHTML = ads.map((ad, index) => {
+    const schedule = [ad.startDate, ad.endDate].filter(Boolean).join(' → ') || '—';
+    const thumb = ad.type === 'video'
+      ? `<div class="ads-thumb ads-thumb--video">▶</div>`
+      : `<img class="ads-thumb" src="${escHtml(adPreviewUrl(ad))}" alt="" loading="lazy" />`;
+    return `
+      <tr data-ad-id="${escHtml(ad.id)}">
+        <td>${thumb}</td>
+        <td><input type="text" class="ads-title-edit field__input" value="${escHtml(ad.title)}" data-ad-title="${escHtml(ad.id)}" /></td>
+        <td>${escHtml(ad.type)}</td>
+        <td><button type="button" class="btn btn--ghost btn--sm ads-toggle-active" data-ad-id="${escHtml(ad.id)}">${ad.active ? 'Active' : 'Inactive'}</button></td>
+        <td>${ad.uploadedAt ? new Date(ad.uploadedAt).toLocaleString() : '—'}</td>
+        <td>
+          <div class="ads-date-row">
+            <input type="date" class="field__input ads-date-start" data-ad-id="${escHtml(ad.id)}" value="${escHtml(ad.startDate || '')}" />
+            <input type="date" class="field__input ads-date-end" data-ad-id="${escHtml(ad.id)}" value="${escHtml(ad.endDate || '')}" />
+          </div>
+        </td>
+        <td>${escHtml(formatFileSize(ad.fileSize))}</td>
+        <td class="ads-actions">
+          <button type="button" class="btn btn--ghost btn--sm ads-preview-btn" data-ad-id="${escHtml(ad.id)}">Preview</button>
+          <button type="button" class="btn btn--ghost btn--sm ads-move-up" data-ad-id="${escHtml(ad.id)}" ${index === 0 ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn btn--ghost btn--sm ads-move-down" data-ad-id="${escHtml(ad.id)}" ${index === ads.length - 1 ? 'disabled' : ''}>↓</button>
+          <button type="button" class="btn btn--danger btn--sm ads-delete-btn" data-ad-id="${escHtml(ad.id)}">Delete</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  adsTableBody.querySelectorAll('.ads-toggle-active').forEach((btn) => {
+    btn.addEventListener('click', () => toggleAdActive(btn.dataset.adId));
+  });
+  adsTableBody.querySelectorAll('.ads-preview-btn').forEach((btn) => {
+    btn.addEventListener('click', () => previewAd(btn.dataset.adId));
+  });
+  adsTableBody.querySelectorAll('.ads-delete-btn').forEach((btn) => {
+    btn.addEventListener('click', () => deleteAd(btn.dataset.adId));
+  });
+  adsTableBody.querySelectorAll('.ads-move-up').forEach((btn) => {
+    btn.addEventListener('click', () => moveAd(btn.dataset.adId, -1));
+  });
+  adsTableBody.querySelectorAll('.ads-move-down').forEach((btn) => {
+    btn.addEventListener('click', () => moveAd(btn.dataset.adId, 1));
+  });
+  adsTableBody.querySelectorAll('.ads-title-edit').forEach((input) => {
+    input.addEventListener('change', () => updateAdField(input.dataset.adTitle, { title: input.value }));
+  });
+  adsTableBody.querySelectorAll('.ads-date-start').forEach((input) => {
+    input.addEventListener('change', () => updateAdField(input.dataset.adId, { startDate: input.value }));
+  });
+  adsTableBody.querySelectorAll('.ads-date-end').forEach((input) => {
+    input.addEventListener('change', () => updateAdField(input.dataset.adId, { endDate: input.value }));
+  });
+}
+
+function getAdById(id) {
+  return (adsState.data?.ads || []).find((ad) => ad.id === id) || null;
+}
+
+async function updateAdField(id, patch) {
+  const data = { ...adsState.data, ads: [...(adsState.data.ads || [])] };
+  const ad = data.ads.find((a) => a.id === id);
+  if (!ad) return;
+  Object.assign(ad, patch, { updatedAt: new Date().toISOString() });
+  try {
+    await commitAds(data, `admin: update kiosk ad ${id}`);
+    toast(adsToast, 'Ad updated.', 'success');
+    await loadAdsTab();
+  } catch (err) {
+    toast(adsToast, err.message, 'error', 6000);
+  }
+}
+
+async function toggleAdActive(id) {
+  const ad = getAdById(id);
+  if (!ad) return;
+  await updateAdField(id, { active: !ad.active });
+}
+
+async function moveAd(id, delta) {
+  const data = { ...adsState.data, ads: [...(adsState.data.ads || [])] };
+  const sorted = data.ads.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const idx = sorted.findIndex((a) => a.id === id);
+  const swap = idx + delta;
+  if (idx < 0 || swap < 0 || swap >= sorted.length) return;
+  const aOrder = sorted[idx].order ?? idx;
+  sorted[idx].order = sorted[swap].order ?? swap;
+  sorted[swap].order = aOrder;
+  data.ads = sorted;
+  try {
+    await commitAds(data, `admin: reorder kiosk ads`);
+    await loadAdsTab();
+  } catch (err) {
+    toast(adsToast, err.message, 'error', 6000);
+  }
+}
+
+function previewAd(id) {
+  const ad = getAdById(id);
+  if (!ad || !adsPreviewBackdrop) return;
+  adsPreviewTitle.textContent = ad.title || 'Ad preview';
+  adsPreviewMedia.innerHTML = '';
+  const url = adMediaUrl(ad);
+  if (ad.type === 'video') {
+    const video = document.createElement('video');
+    video.src = url;
+    video.controls = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    adsPreviewMedia.appendChild(video);
+  } else {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = ad.title || '';
+    adsPreviewMedia.appendChild(img);
+  }
+  adsPreviewBackdrop.classList.remove('is-hidden');
+}
+
+function closeAdsPreview() {
+  if (!adsPreviewBackdrop) return;
+  adsPreviewBackdrop.classList.add('is-hidden');
+  if (adsPreviewMedia) adsPreviewMedia.innerHTML = '';
+}
+
+adsPreviewClose?.addEventListener('click', closeAdsPreview);
+adsPreviewBackdrop?.addEventListener('click', (e) => {
+  if (e.target === adsPreviewBackdrop) closeAdsPreview();
+});
+
+async function deleteAd(id) {
+  const ad = getAdById(id);
+  if (!ad) return;
+  const ok = await askConfirm({
+    title: 'Delete this ad?',
+    body: 'The ad will be removed from the kiosk playlist. The media file will be deleted from the repo.',
+    confirmLabel: 'Delete',
+  });
+  if (!ok) return;
+
+  try {
+    if (ad.fileName) {
+      const file = await getFile(conn, `${ADS_DIR}/${ad.fileName}`);
+      if (file?.sha) {
+        await deleteFile(conn, {
+          path: `${ADS_DIR}/${ad.fileName}`,
+          sha: file.sha,
+          message: `admin: delete kiosk ad media ${ad.fileName}`,
+        });
+      }
+    }
+    const next = {
+      ...adsState.data,
+      ads: (adsState.data.ads || []).filter((a) => a.id !== id),
+    };
+    next.meta = {
+      ...next.meta,
+      lastUpdatedAt: new Date().toISOString(),
+      totalAds: next.ads.length,
+    };
+    await commitAds(next, `admin: remove kiosk ad ${id}`);
+    toast(adsToast, 'Ad deleted.', 'success');
+    await loadAdsTab();
+  } catch (err) {
+    toast(adsToast, err.message, 'error', 6000);
+  }
+}
+
+async function handleAdsUpload(e) {
+  e.preventDefault();
+  const file = adsFileInput?.files?.[0];
+  const title = adsTitleInput?.value?.trim() || '';
+  if (!file) {
+    toast(adsToast, 'Choose a file to upload.', 'error');
+    return;
+  }
+
+  const validation = validateAdFile(file);
+  if (!validation.ok) {
+    toast(adsToast, validation.error, 'error', 6000);
+    return;
+  }
+
+  const prev = adsUploadBtn?.textContent;
+  if (adsUploadBtn) { adsUploadBtn.disabled = true; adsUploadBtn.textContent = 'Uploading…'; }
+  adsUploadProgress?.classList.remove('is-hidden');
+  if (adsUploadFill) adsUploadFill.style.width = '10%';
+  if (adsUploadLabel) adsUploadLabel.textContent = 'Uploading media…';
+
+  try {
+    const safeName = makeAdFilename(title, file.name);
+    const targetPath = `${ADS_DIR}/${safeName}`;
+    await putBinaryFile(conn, {
+      path: targetPath,
+      blob: file,
+      message: `admin: upload kiosk ad ${safeName}`,
+    });
+    if (adsUploadFill) adsUploadFill.style.width = '70%';
+    if (adsUploadLabel) adsUploadLabel.textContent = 'Saving metadata…';
+
+    await loadAdsFromRepo();
+    const data = adsState.data || emptyAdsData();
+    const maxOrder = (data.ads || []).reduce((m, ad) => Math.max(m, ad.order ?? 0), -1);
+    const now = new Date().toISOString();
+    const record = {
+      id: createAdId(),
+      title: title || file.name,
+      type: validation.type,
+      src: `/${ADS_DIR}/${safeName}`,
+      thumbnailSrc: validation.type === 'image' ? `/${ADS_DIR}/${safeName}` : '',
+      fileName: safeName,
+      fileSize: file.size,
+      mimeType: file.type,
+      active: adsActiveInput?.checked !== false,
+      startDate: adsStartDate?.value || '',
+      endDate: adsEndDate?.value || '',
+      durationSeconds: null,
+      uploadedAt: now,
+      updatedAt: now,
+      order: maxOrder + 1,
+    };
+
+    const next = {
+      ...data,
+      ads: [...(data.ads || []), record],
+    };
+    next.meta = {
+      ...next.meta,
+      lastUpdatedAt: now,
+      totalAds: next.ads.length,
+    };
+
+    await commitAds(next, `admin: add kiosk ad ${record.id}`);
+    if (adsUploadFill) adsUploadFill.style.width = '100%';
+    if (adsUploadLabel) adsUploadLabel.textContent = 'Done.';
+    toast(adsToast, 'Ad uploaded successfully.', 'success');
+    adsUploadForm?.reset();
+    if (adsActiveInput) adsActiveInput.checked = true;
+    await loadAdsTab();
+  } catch (err) {
+    toast(adsToast, 'Ad upload failed. Please check the file type, file size, and try again.', 'error', 8000);
+    if (adsUploadLabel) adsUploadLabel.textContent = err.message;
+  } finally {
+    if (adsUploadBtn) { adsUploadBtn.disabled = false; adsUploadBtn.textContent = prev; }
+    setTimeout(() => adsUploadProgress?.classList.add('is-hidden'), 1600);
+  }
+}
+
+async function loadAdsTab() {
+  try {
+    await loadAdsFromRepo();
+    renderAdsTable();
+  } catch (err) {
+    toast(adsToast, `Could not load ads: ${err.message}`, 'error', 6000);
+  }
+}
+
+async function triggerTestIdleAdsOnAllKiosks() {
+  const activeN = (adsState.data?.ads || []).filter((ad) => ad.active).length;
+  if (!activeN) {
+    toast(adsToast, 'Upload at least one active ad before testing.', 'error', 5000);
+    return;
+  }
+
+  const prev = adsTestIdleBtn?.textContent;
+  if (adsTestIdleBtn) {
+    adsTestIdleBtn.disabled = true;
+    adsTestIdleBtn.textContent = 'Sending…';
+  }
+
+  try {
+    await loadAdsFromRepo();
+    const data = adsState.data || emptyAdsData();
+    const now = new Date().toISOString();
+    data.meta = {
+      ...data.meta,
+      testIdleAdsAt: now,
+      lastUpdatedAt: now,
+    };
+    await commitAds(data, 'admin: trigger idle ad test on all kiosks');
+    toast(
+      adsToast,
+      'Test signal sent. Active kiosks should start ads within about 15 seconds.',
+      'success',
+      6000,
+    );
+    await loadAdsTab();
+  } catch (err) {
+    toast(adsToast, err.message || 'Could not send test signal.', 'error', 6000);
+  } finally {
+    if (adsTestIdleBtn) {
+      adsTestIdleBtn.textContent = prev;
+    }
+  }
+}
+
+function wireAdsTab() {
+  adsUploadForm?.addEventListener('submit', handleAdsUpload);
+  adsTestIdleBtn?.addEventListener('click', triggerTestIdleAdsOnAllKiosks);
+}
+
 // ─── Dashboard init ─────────────────────────────────────
 async function initDashboard() {
   wireSection(sections.partners);
   wireSection(sections.attendees);
   wireJobsTab();
+  wireAdsTab();
   await loadMapTab();
   await Promise.all([
     renderSection(sections.partners),
     renderSection(sections.attendees),
     loadJobsTab(),
+    loadAdsTab(),
   ]);
 }
 

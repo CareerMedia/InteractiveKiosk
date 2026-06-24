@@ -24,6 +24,24 @@ import {
   getBrevoEnvStatus,
 } from './lib/email.js';
 import { MAX_EMAIL_JOBS } from '../src/shared/jobs-constants.js';
+import {
+  readAds,
+  writeAds,
+  publicAdsPayload,
+  findAdById,
+  createAdRecord,
+  saveAdMedia,
+  deleteAdMedia,
+  validateAdFile,
+  ADS_JSON_PATH,
+  ADS_DIR,
+} from './lib/ads-store.js';
+import {
+  hasGithubCommitSupport,
+  getGithubJsonFile,
+  commitGithubFiles,
+  deleteGithubFile,
+} from './lib/github-commit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, '..');
@@ -78,14 +96,14 @@ export function createApp({ serveStatic = true } = {}) {
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Password, Authorization');
     }
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
 
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '12mb' }));
 
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -307,6 +325,163 @@ export function createApp({ serveStatic = true } = {}) {
         meta: data.meta,
         jobs: data.jobs,
       });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/ads', async (_req, res) => {
+    try {
+      const data = await readAds();
+      res.json(publicAdsPayload(data));
+    } catch (err) {
+      res.status(500).json({ success: false, error: 'Could not load ads.' });
+    }
+  });
+
+  app.get('/api/admin/ads', adminOnly, async (_req, res) => {
+    try {
+      const data = await readAds();
+      res.json({ success: true, ...data, githubCommit: hasGithubCommitSupport() });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/admin/ads/upload', adminOnly, async (req, res) => {
+    try {
+      const {
+        title,
+        active = true,
+        startDate = '',
+        endDate = '',
+        fileName,
+        mimeType = '',
+        base64,
+      } = req.body || {};
+
+      if (!base64 || !fileName) {
+        return res.status(400).json({ success: false, error: 'A valid file is required.' });
+      }
+
+      const buffer = Buffer.from(String(base64), 'base64');
+      const validation = validateAdFile({ name: fileName, size: buffer.length, type: mimeType });
+      if (!validation.ok) {
+        return res.status(400).json({ success: false, error: validation.error });
+      }
+
+      const saved = await saveAdMedia(buffer, fileName, title, mimeType);
+      const data = await readAds();
+      const maxOrder = (data.ads || []).reduce((m, ad) => Math.max(m, ad.order ?? 0), -1);
+      const record = createAdRecord({
+        title,
+        fileName: saved.fileName,
+        fileSize: buffer.length,
+        mimeType,
+        type: saved.type,
+        src: saved.src,
+      });
+      record.active = Boolean(active);
+      record.startDate = startDate || '';
+      record.endDate = endDate || '';
+      record.order = maxOrder + 1;
+
+      const next = {
+        ...data,
+        ads: [...(data.ads || []), record],
+      };
+      next.meta = {
+        ...next.meta,
+        lastUpdatedAt: new Date().toISOString(),
+        totalAds: next.ads.length,
+      };
+
+      if (hasGithubCommitSupport()) {
+        await commitGithubFiles({
+          message: `admin: upload kiosk ad ${saved.fileName}`,
+          files: [
+            { path: `${ADS_DIR}/${saved.fileName}`, content: buffer.toString('base64'), encoding: 'base64' },
+            { path: ADS_JSON_PATH, content: next },
+          ],
+        });
+      } else {
+        await writeAds(next);
+      }
+
+      res.json({ success: true, ad: record, ads: next.ads });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        error: 'Ad upload failed. Please check the file type, file size, and try again.',
+        detail: err.message,
+      });
+    }
+  });
+
+  app.patch('/api/admin/ads/:id', adminOnly, async (req, res) => {
+    try {
+      const data = await readAds();
+      const ad = findAdById(data, req.params.id);
+      if (!ad) return res.status(404).json({ success: false, error: 'Ad not found.' });
+
+      const body = req.body || {};
+      if (body.title != null) ad.title = String(body.title).trim() || ad.title;
+      if (body.active != null) ad.active = Boolean(body.active);
+      if (body.startDate != null) ad.startDate = body.startDate || '';
+      if (body.endDate != null) ad.endDate = body.endDate || '';
+      if (body.order != null) ad.order = Number(body.order) || 0;
+      ad.updatedAt = new Date().toISOString();
+
+      const next = { ...data, ads: (data.ads || []).map((a) => (a.id === ad.id ? ad : a)) };
+      next.meta = { ...next.meta, lastUpdatedAt: ad.updatedAt, totalAds: next.ads.length };
+
+      if (hasGithubCommitSupport()) {
+        await commitGithubFiles({
+          message: `admin: update kiosk ad ${ad.id}`,
+          files: [{ path: ADS_JSON_PATH, content: next }],
+        });
+      } else {
+        await writeAds(next);
+      }
+
+      res.json({ success: true, ad, ads: next.ads });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.delete('/api/admin/ads/:id', adminOnly, async (req, res) => {
+    try {
+      const data = await readAds();
+      const ad = findAdById(data, req.params.id);
+      if (!ad) return res.status(404).json({ success: false, error: 'Ad not found.' });
+
+      const next = {
+        ...data,
+        ads: (data.ads || []).filter((a) => a.id !== ad.id),
+      };
+      next.meta = {
+        ...next.meta,
+        lastUpdatedAt: new Date().toISOString(),
+        totalAds: next.ads.length,
+      };
+
+      if (hasGithubCommitSupport() && ad.fileName) {
+        try {
+          await deleteGithubFile(`${ADS_DIR}/${ad.fileName}`, `admin: delete kiosk ad ${ad.fileName}`);
+        } catch {
+          /* metadata removal still proceeds */
+        }
+        await commitGithubFiles({
+          message: `admin: remove kiosk ad ${ad.id}`,
+          files: [{ path: ADS_JSON_PATH, content: next }],
+        });
+      } else {
+        await deleteAdMedia(ad.fileName);
+        await writeAds(next);
+      }
+
+      res.json({ success: true, ads: next.ads });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
     }

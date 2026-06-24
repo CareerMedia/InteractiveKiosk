@@ -7,6 +7,7 @@ import { URL_CONFIG } from './config/urls.js';
 import { loadConfig } from './shared/config.js';
 import { apiUrl } from './shared/api-base.js';
 import { initJobsPage, loadJobsPage, getJobsPageElements, resetJobsSession } from './jobs-page.js';
+import { initIdleAdPlayer } from './idle-ad-player.js';
 
 // ─── STATE ────────────────────────────────────────────────
 const state = {
@@ -22,6 +23,7 @@ const state = {
   mapLoaded: false,
   mapUrlOverride: null,
   configVersion: 0,
+  idleAdPlayer: null,
   webLoadState: { website: 'idle', partners: 'idle' },
   webHtmlCache: {},
 };
@@ -1164,6 +1166,7 @@ async function loadRuntimeConfig() {
     const cfg = await loadConfig();
     state.configVersion = cfg.version || 0;
     if (cfg.mapUrl) state.mapUrlOverride = cfg.mapUrl;
+    state.idleAdPlayer?.checkRemoteTestTrigger?.();
   } catch (err) {
     console.warn('config.json unavailable; using bundled defaults.', err);
   }
@@ -1174,6 +1177,10 @@ async function init() {
   applyCopy();
   initJobsPage(getJobsPageElements(), () => {
     if (state.activeView !== 'home') resetInactivityTimer();
+  });
+  state.idleAdPlayer = initIdleAdPlayer({
+    overlay: document.getElementById('idle-ad-overlay'),
+    mediaEl: document.getElementById('idle-ad-media'),
   });
   bindEvents();
   await loadRuntimeConfig();

@@ -113,6 +113,7 @@
         <button class="dash-tab"           data-tab="partners"  role="tab">Employer Partners</button>
         <button class="dash-tab"           data-tab="attendees" role="tab">Participating Employers</button>
         <button class="dash-tab"           data-tab="jobs"      role="tab">Job Opportunities</button>
+        <button class="dash-tab"           data-tab="ads"       role="tab">Kiosk Ads</button>
       </nav>
 
       <main class="dash-main">
@@ -322,7 +323,91 @@
           </form>
         </section>
 
+        <!-- ─── KIOSK ADS TAB ─── -->
+        <section class="dash-panel" data-panel="ads">
+          <div class="panel-head">
+            <h2 class="panel-title">Kiosk Ads</h2>
+            <p class="panel-sub">
+              Upload vertical video or image ads for idle kiosk playback after 3 minutes of inactivity.
+              Media is stored in <code>assets/ads/</code> and metadata in <code>data/kiosk-ads.json</code>.
+              Preferred video format: MP4.
+            </p>
+          </div>
+
+          <form id="ads-upload-form" class="map-form" autocomplete="off">
+            <div class="field-row">
+              <label class="field">
+                <span class="field__label">Display title</span>
+                <input type="text" id="ads-title-input" class="field__input" placeholder="Career Fair Promo" required />
+              </label>
+              <label class="field">
+                <span class="field__label">Media file</span>
+                <input type="file" id="ads-file-input" class="field__input" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" required />
+              </label>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span class="field__label">Start date (optional)</span>
+                <input type="date" id="ads-start-date" class="field__input" />
+              </label>
+              <label class="field">
+                <span class="field__label">End date (optional)</span>
+                <input type="date" id="ads-end-date" class="field__input" />
+              </label>
+              <label class="field field--checkbox">
+                <input type="checkbox" id="ads-active-input" checked />
+                <span>Active on upload</span>
+              </label>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="ads-upload-btn">Upload Ad</button>
+            </div>
+            <p class="panel-sub" id="ads-upload-hint">Images up to 10 MB. Videos up to 250 MB. Files commit to GitHub.</p>
+            <div class="upload-progress is-hidden" id="ads-upload-progress">
+              <div class="upload-progress__bar"><div class="upload-progress__fill" style="width:0%"></div></div>
+              <div class="upload-progress__label">Uploading…</div>
+            </div>
+            <div class="inline-toast is-hidden" id="ads-toast"></div>
+          </form>
+
+          <div class="ads-admin-stats" id="ads-admin-stats">
+            <span class="count-chip" id="ads-total-count">0 ads</span>
+            <span class="count-chip" id="ads-active-count">0 active</span>
+            <button class="btn btn--ghost" type="button" id="ads-test-idle-btn">Test Idle Ads on All Kiosks</button>
+            <span class="ads-test-status" id="ads-test-status"></span>
+          </div>
+
+          <div class="ads-admin-table-wrap">
+            <table class="jobs-admin-table ads-admin-table" id="ads-table">
+              <thead>
+                <tr>
+                  <th>Preview</th>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Uploaded</th>
+                  <th>Schedule</th>
+                  <th>Size</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ads-table-body">
+                <tr><td colspan="8" class="jobs-admin-empty">No ads uploaded yet. Upload a vertical video or image to start showing idle kiosk ads.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
       </main>
+    </div>
+
+    <!-- ═══════════════ AD PREVIEW MODAL ═══════════════ -->
+    <div class="confirm-backdrop is-hidden" id="ads-preview-backdrop" role="dialog" aria-modal="true" aria-label="Ad preview">
+      <div class="ads-preview-card">
+        <button class="modal-close-x" type="button" id="ads-preview-close" aria-label="Close preview">×</button>
+        <h3 class="confirm-title" id="ads-preview-title">Ad preview</h3>
+        <div class="ads-preview-media" id="ads-preview-media"></div>
+      </div>
     </div>
 
     <!-- ═══════════════ CONFIRM MODAL ═══════════════ -->
