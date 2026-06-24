@@ -1,11 +1,11 @@
 {
   "mapUrl": "https://app.mappedin.com/map/67be0704561935000b3e6cbb?embedded=true",
   "apiBaseUrl": "https://interactive-kiosk.vercel.app",
-  "version": 6,
-  "updatedAt": "2026-06-24T17:42:09.463Z",
+  "version": 7,
+  "updatedAt": "2026-06-24T18:16:40.168Z",
   "homepageBackground": "assets/branding/homepage-background.png",
   "checkInMode": "url",
-  "checkInUrl": "",
+  "checkInUrl": "https://forms.monday.com/forms/a166abbfb6c4cea65ee9c221ed1af5e6?r=use1",
   "checkInEmbed": "",
   "mobileMapQr": "assets/qr/mobile-map.png"
 }
