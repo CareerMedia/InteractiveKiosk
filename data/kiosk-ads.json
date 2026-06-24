@@ -1,11 +1,29 @@
 {
   "meta": {
-    "lastUpdatedAt": null,
-    "totalAds": 0,
+    "lastUpdatedAt": "2026-06-24T18:21:39.764Z",
+    "totalAds": 1,
     "idleDelayMs": 180000,
     "imageSlideDurationMs": 10000,
     "randomize": true,
-    "testIdleAdsAt": null
+    "testIdleAdsAt": "2026-06-24T18:21:39.764Z"
   },
-  "ads": []
+  "ads": [
+    {
+      "id": "ad_20260624-111736",
+      "title": "Test Ad",
+      "type": "video",
+      "src": "/assets/ads/test-ad-20260624-111732.mp4",
+      "thumbnailSrc": "",
+      "fileName": "test-ad-20260624-111732.mp4",
+      "fileSize": 5483801,
+      "mimeType": "video/mp4",
+      "active": true,
+      "startDate": "2026-06-24",
+      "endDate": "2026-06-30",
+      "durationSeconds": null,
+      "uploadedAt": "2026-06-24T18:17:36.315Z",
+      "updatedAt": "2026-06-24T18:17:36.315Z",
+      "order": 0
+    }
+  ]
 }
