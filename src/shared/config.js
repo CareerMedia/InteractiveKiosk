@@ -38,6 +38,7 @@ export function loadConfig({ force = false } = {}) {
       return {
         mapUrl:    typeof data.mapUrl === 'string' && data.mapUrl ? data.mapUrl : MAP_CONFIG.embedUrl,
         apiBaseUrl: typeof data.apiBaseUrl === 'string' ? data.apiBaseUrl.trim() : '',
+        homepageBackground: typeof data.homepageBackground === 'string' ? data.homepageBackground.trim() : '',
         version:   Number.isFinite(data.version) ? data.version : 0,
         updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
       };
@@ -49,7 +50,7 @@ export function loadConfig({ force = false } = {}) {
 }
 
 function fallbackConfig() {
-  return { mapUrl: MAP_CONFIG.embedUrl, apiBaseUrl: '', version: 0, updatedAt: null };
+  return { mapUrl: MAP_CONFIG.embedUrl, apiBaseUrl: '', homepageBackground: '', version: 0, updatedAt: null };
 }
 
 // Build the same URL the kiosk iframe loads, with the embed/kiosk params set.

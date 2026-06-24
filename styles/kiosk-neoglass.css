@@ -1,0 +1,609 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSUN Career Fair Kiosk — NeoGlass design layer
+   Portrait-first premium light glass UI (home, nav rail, dock)
+═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --kiosk-bg: #f8f9fb;
+  --kiosk-surface: #ffffff;
+  --kiosk-glass: rgba(255, 255, 255, 0.64);
+  --kiosk-glass-strong: rgba(255, 255, 255, 0.82);
+  --kiosk-border: rgba(15, 23, 42, 0.08);
+  --kiosk-border-light: rgba(255, 255, 255, 0.74);
+  --kiosk-text-primary: #111827;
+  --kiosk-text-secondary: #5e6878;
+  --kiosk-text-muted: #8a93a3;
+  --csun-red: #d71920;
+  --csun-red-bright: #ff4f64;
+  --csun-red-deep: #a80f18;
+  --csun-red-soft: rgba(215, 25, 32, 0.12);
+  --kiosk-radius-card: 28px;
+  --kiosk-radius-panel: 32px;
+  --kiosk-radius-pill: 999px;
+  --kiosk-shadow-glass:
+    0 24px 80px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  --kiosk-shadow-red:
+    0 18px 42px rgba(215, 25, 32, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  --kiosk-hero-height: clamp(340px, 46vh, 520px);
+}
+
+/* ─── App shell on home ─────────────────────────────────────────────────── */
+.app[data-view="home"] {
+  background: var(--kiosk-bg);
+}
+
+.app[data-view="home"] .topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: var(--sidebar-w);
+  z-index: 12;
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+  pointer-events: none;
+  min-height: 0;
+  padding-top: 12px;
+}
+
+.app[data-view="home"] .topbar .brand-lockup,
+.app[data-view="home"] .topbar .topbar-headline {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+}
+
+.app[data-view="home"] .topbar-meta {
+  pointer-events: auto;
+  margin-left: auto;
+}
+
+.app[data-view="home"] .meta-pill,
+.app[data-view="home"] .countdown-chip {
+  background: var(--kiosk-glass-strong);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--kiosk-border-light);
+  color: var(--kiosk-text-secondary);
+  box-shadow: var(--kiosk-shadow-glass);
+}
+
+.app[data-view="home"] .stage-body {
+  background: var(--kiosk-bg);
+}
+
+/* ─── Home scroll canvas ──────────────────────────────────────────────── */
+.view--home.is-active {
+  display: block !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  height: 100%;
+  scrollbar-width: thin;
+}
+
+.kiosk-home {
+  min-height: 100%;
+  padding: 0 0 24px;
+  padding-right: 8px;
+}
+
+/* ─── Glass primitives ────────────────────────────────────────────────── */
+.glass-panel {
+  background: var(--kiosk-glass);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--kiosk-border-light);
+  border-radius: var(--kiosk-radius-panel);
+  box-shadow: var(--kiosk-shadow-glass);
+}
+
+.glass-panel--inset {
+  background: rgba(255, 255, 255, 0.52);
+  border-radius: var(--kiosk-radius-card);
+}
+
+/* ─── Hero ────────────────────────────────────────────────────────────── */
+.kiosk-hero {
+  position: relative;
+  min-height: var(--kiosk-hero-height);
+  padding: 88px 48px 32px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.kiosk-hero__bg {
+  position: absolute;
+  inset: 0 0 0 0;
+  height: 100%;
+  background: var(--kiosk-bg);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+
+.kiosk-hero__fade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.55) 38%, rgba(255, 255, 255, 0.12) 72%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.72) 68%, var(--kiosk-bg) 100%);
+}
+
+.kiosk-hero__content {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+}
+
+.kiosk-hero__toprow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.kiosk-hero__logo {
+  height: 44px;
+  width: auto;
+  max-width: min(240px, 55vw);
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(255, 255, 255, 0.8));
+}
+
+.kiosk-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--kiosk-radius-pill);
+  background: var(--kiosk-glass-strong);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--kiosk-border-light);
+  box-shadow: var(--kiosk-shadow-glass);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--kiosk-text-secondary);
+  white-space: nowrap;
+}
+
+.kiosk-live-chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--csun-red);
+  box-shadow: 0 0 0 4px var(--csun-red-soft);
+  animation: kiosk-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes kiosk-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.92); }
+}
+
+.kiosk-live-chip__label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--csun-red);
+}
+
+.kiosk-live-chip__time {
+  color: var(--kiosk-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.kiosk-hero__eyebrow {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--csun-red);
+  margin-bottom: 12px;
+}
+
+.kiosk-hero__title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(2.75rem, 6.5vw, 4.75rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: var(--kiosk-text-primary);
+  margin-bottom: 16px;
+}
+
+.kiosk-hero__accent {
+  font-style: italic;
+  color: var(--csun-red-bright);
+  font-weight: 800;
+}
+
+.kiosk-hero__desc {
+  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+  line-height: 1.5;
+  color: var(--kiosk-text-secondary);
+  max-width: 34ch;
+  margin-bottom: 28px;
+}
+
+.kiosk-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 0 32px;
+  border: none;
+  border-radius: var(--kiosk-radius-pill);
+  background: linear-gradient(180deg, #ff5a6a 0%, var(--csun-red) 100%);
+  color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: var(--kiosk-shadow-red);
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.kiosk-cta-primary:hover {
+  transform: translateY(-2px);
+}
+
+.kiosk-cta-primary:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.kiosk-cta-primary:focus-visible {
+  outline: 3px solid rgba(215, 25, 32, 0.35);
+  outline-offset: 4px;
+}
+
+.kiosk-cta-primary__arrow {
+  font-size: 1.25rem;
+  opacity: 0.9;
+}
+
+/* ─── Stats bar ───────────────────────────────────────────────────────── */
+.kiosk-stats {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0;
+  margin: -8px 40px 28px;
+  padding: 24px 20px;
+}
+
+.kiosk-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 8px 12px;
+}
+
+.kiosk-stat__badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(245, 247, 251, 0.75));
+  border: 1px solid var(--kiosk-border-light);
+  color: var(--csun-red);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.kiosk-stat__value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(2.25rem, 5vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--kiosk-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.kiosk-stat__value[data-loading="true"] {
+  opacity: 0.45;
+}
+
+.kiosk-stat__value.is-counting {
+  animation: kiosk-stat-pop 420ms ease;
+}
+
+@keyframes kiosk-stat-pop {
+  from { opacity: 0.4; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kiosk-stat__label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--kiosk-text-muted);
+}
+
+.kiosk-stat__divider {
+  width: 1px;
+  height: 72px;
+  background: linear-gradient(to bottom, transparent, var(--kiosk-border), transparent);
+}
+
+/* ─── Sections ────────────────────────────────────────────────────────── */
+.kiosk-section {
+  padding: 0 40px 24px;
+}
+
+.kiosk-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.kiosk-section__title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--kiosk-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kiosk-section__spark {
+  color: var(--csun-red);
+  font-size: 0.85rem;
+}
+
+.kiosk-section__icon {
+  color: var(--csun-red);
+  flex-shrink: 0;
+}
+
+.kiosk-section__link {
+  background: var(--kiosk-glass-strong);
+  border: 1px solid var(--kiosk-border-light);
+  border-radius: var(--kiosk-radius-pill);
+  padding: 10px 18px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--kiosk-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--kiosk-shadow-glass);
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.kiosk-section__link:hover {
+  color: var(--csun-red);
+  background: #fff;
+}
+
+.kiosk-section__link:focus-visible {
+  outline: 3px solid rgba(215, 25, 32, 0.3);
+  outline-offset: 2px;
+}
+
+.kiosk-section__hint {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kiosk-text-muted);
+  white-space: nowrap;
+}
+
+/* ─── Partners carousel (glass cards) ─────────────────────────────────── */
+.kiosk-partners-section.featured-section {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.kiosk-partners-section .partner-scroll-shell {
+  padding: 16px 12px;
+  margin: 0;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
+}
+
+.kiosk-partners-section .partner-logo-card {
+  min-width: 132px;
+  height: 72px;
+  padding: 12px 22px;
+  border-radius: 22px;
+  background: var(--kiosk-glass-strong);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid var(--kiosk-border-light);
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.kiosk-partners-section .partner-logo-card::before {
+  display: none;
+}
+
+.kiosk-partners-section .partner-logo-card img {
+  max-height: 40px;
+  max-width: 110px;
+}
+
+/* ─── Participating employers wall ────────────────────────────────────── */
+.kiosk-attendees-section.attendees-section {
+  min-height: 380px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 40px 120px;
+  gap: 12px;
+}
+
+.kiosk-attendees-section .logo-ticker-shell {
+  flex: 1;
+  min-height: 320px;
+  border: 1px solid var(--kiosk-border-light);
+  background:
+    radial-gradient(900px 280px at 20% 0%, rgba(168, 120, 255, 0.08), transparent 55%),
+    radial-gradient(800px 260px at 90% 100%, rgba(125, 190, 255, 0.1), transparent 55%),
+    rgba(255, 255, 255, 0.45);
+  border-radius: var(--kiosk-radius-panel);
+  box-shadow: var(--kiosk-shadow-glass);
+}
+
+.kiosk-attendees-section .ticker-card {
+  border-radius: 20px;
+  background: var(--kiosk-glass-strong);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--kiosk-border-light);
+  box-shadow:
+    0 10px 28px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.kiosk-attendees-section .ticker-card::before {
+  height: 2px;
+  opacity: 0.65;
+}
+
+.kiosk-attendees-section .section-label {
+  display: none;
+}
+
+/* ─── Floating nav rail ───────────────────────────────────────────────── */
+.kiosk-nav-rail.sidebar {
+  background: transparent;
+  border-left: none;
+  padding: 16px 10px;
+  z-index: 100;
+}
+
+.kiosk-nav-rail .sidebar-item {
+  min-height: 72px;
+  margin: 4px 0;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 150ms ease;
+}
+
+.kiosk-nav-rail .sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.kiosk-nav-rail .sidebar-item--active {
+  background: var(--kiosk-glass-strong);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--kiosk-border-light);
+  box-shadow:
+    0 12px 36px rgba(215, 25, 32, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.kiosk-nav-rail .sidebar-item--active .sidebar-item__label {
+  color: var(--csun-red);
+  font-weight: 800;
+}
+
+.kiosk-nav-rail .sidebar-item--active .sidebar-item__icon svg {
+  stroke: var(--csun-red);
+}
+
+.kiosk-nav-rail .sidebar-item__icon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: var(--kiosk-text-secondary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.kiosk-nav-rail .sidebar-item__label {
+  font-size: 0.68rem;
+  color: var(--kiosk-text-muted);
+}
+
+.kiosk-nav-rail .sidebar-spacer {
+  border: none;
+  background: transparent;
+}
+
+.kiosk-nav-rail .sidebar-item--home {
+  background: rgba(215, 25, 32, 0.06);
+}
+
+.kiosk-nav-rail .sidebar-item--home:hover {
+  background: rgba(215, 25, 32, 0.12);
+}
+
+/* ─── Bottom dock ─────────────────────────────────────────────────────── */
+.kiosk-dock.cta-bar {
+  background: var(--kiosk-glass-strong);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  border-top: 1px solid var(--kiosk-border-light);
+  box-shadow:
+    0 -8px 40px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  padding: 16px 28px;
+  z-index: 100;
+}
+
+.kiosk-dock .cta-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.14em;
+  color: var(--kiosk-text-muted);
+}
+
+.kiosk-dock .cta-text {
+  color: var(--kiosk-text-secondary);
+  font-size: 1rem;
+}
+
+.kiosk-dock .primary-cta,
+.kiosk-cta-secondary {
+  min-height: 64px;
+  padding: 12px 36px;
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+}
+
+/* ─── Reduced motion ──────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-live-chip__dot { animation: none; }
+  .kiosk-stat__value.is-counting { animation: none; }
+  .kiosk-cta-primary { transition: none; }
+}
+
+/* ─── Portrait kiosk tuning ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .kiosk-hero { padding: 80px 28px 24px; }
+  .kiosk-stats { margin-left: 20px; margin-right: 20px; }
+  .kiosk-section { padding-left: 20px; padding-right: 20px; }
+  .kiosk-attendees-section.attendees-section { padding-left: 20px; padding-right: 20px; }
+}
+
+@media (max-width: 700px) {
+  .app[data-view="home"] .topbar { right: 0; }
+  .kiosk-hero__toprow { flex-direction: column; align-items: flex-start; }
+}

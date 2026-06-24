@@ -1,3 +1,4 @@
+import { BRANDING_CONFIG } from './config/branding.js';
 import { EVENT_CONFIG } from './config/event.js';
 import { LOGO_CONFIG } from './config/logos.js';
 import { MAP_CONFIG } from './config/map.js';
@@ -5,6 +6,7 @@ import { POPUP_CONFIG } from './config/popup.js';
 import { TIMING_CONFIG } from './config/timing.js';
 import { URL_CONFIG } from './config/urls.js';
 import { loadConfig } from './shared/config.js';
+import { loadJobs } from './shared/jobs-loader.js';
 import { apiUrl } from './shared/api-base.js';
 import { initJobsPage, loadJobsPage, getJobsPageElements, resetJobsSession } from './jobs-page.js';
 import { initIdleAdPlayer } from './idle-ad-player.js';
@@ -26,6 +28,7 @@ const state = {
   idleAdPlayer: null,
   webLoadState: { website: 'idle', partners: 'idle' },
   webHtmlCache: {},
+  clockTimer: null,
 };
 
 // ─── ELEMENT CACHE ───────────────────────────────────────
@@ -36,6 +39,17 @@ const els = {
   ctaText:            document.getElementById('cta-text'),
   countdownPill:      document.getElementById('countdown-pill'),
   ctaBar:             document.getElementById('cta-bar'),
+  ctaLabel:           document.getElementById('cta-label'),
+
+  // NeoGlass home
+  kioskHeroBg:        document.getElementById('kiosk-hero-bg'),
+  kioskClock:         document.getElementById('kiosk-clock'),
+  kioskHeroEyebrow:   document.getElementById('kiosk-hero-eyebrow'),
+  kioskHeroDesc:      document.getElementById('kiosk-hero-desc'),
+  kioskHeroCtaLabel:  document.getElementById('kiosk-hero-cta-label'),
+  kioskHeroMapBtn:    document.getElementById('kiosk-hero-map-btn'),
+  statEmployers:      document.getElementById('stat-employers'),
+  statOpportunities:  document.getElementById('stat-opportunities'),
 
   // Home view content
   partnerLogosRow:    document.getElementById('partner-logos-row'),
@@ -126,7 +140,12 @@ const VIEWS = {
 function applyCopy() {
   if (els.eventLabelPill) els.eventLabelPill.textContent = EVENT_CONFIG.label;
   if (els.eventDate)      els.eventDate.textContent      = EVENT_CONFIG.date;
+  if (els.ctaLabel)       els.ctaLabel.textContent       = EVENT_CONFIG.ctaLabel;
   if (els.ctaText)        els.ctaText.textContent        = EVENT_CONFIG.ctaText;
+  if (els.kioskHeroEyebrow)  els.kioskHeroEyebrow.textContent  = EVENT_CONFIG.heroEyebrow || EVENT_CONFIG.date;
+  if (els.kioskHeroDesc)     els.kioskHeroDesc.textContent     = EVENT_CONFIG.heroDescription;
+  if (els.kioskHeroCtaLabel) els.kioskHeroCtaLabel.textContent = EVENT_CONFIG.heroCta;
+  if (els.startButton)       els.startButton.textContent       = `${EVENT_CONFIG.ctaButton} →`;
   if (els.instagramKicker)   els.instagramKicker.textContent   = POPUP_CONFIG.kicker;
   if (els.instagramTitle)    els.instagramTitle.textContent    = POPUP_CONFIG.title;
   if (els.instagramHeadline) els.instagramHeadline.textContent = POPUP_CONFIG.headline;
@@ -152,6 +171,95 @@ function formatName(filename) {
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function siteRootUrl() {
+  const { origin, pathname } = window.location;
+  let root = pathname.replace(/[^/]*$/, '');
+  root = root.replace(/(?:^|\/)(?:mobile|admin)\/+$/, '/');
+  if (!root.endsWith('/')) root += '/';
+  return `${origin}${root}`;
+}
+
+function resolveAssetUrl(path) {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${siteRootUrl()}${path.replace(/^\//, '')}`;
+}
+
+function applyHeroBackground(path) {
+  if (!els.kioskHeroBg) return;
+  const url = path ? resolveAssetUrl(path) : '';
+  if (url) {
+    const sep = url.includes('?') ? '&' : '?';
+    const busted = `${url}${sep}v=${state.configVersion || Date.now()}`;
+    els.kioskHeroBg.style.background = '';
+    els.kioskHeroBg.style.backgroundImage = `url("${busted}")`;
+    els.kioskHeroBg.style.backgroundSize = 'cover';
+    els.kioskHeroBg.style.backgroundPosition = 'center top';
+    els.kioskHeroBg.style.backgroundRepeat = 'no-repeat';
+  } else {
+    els.kioskHeroBg.style.backgroundImage = 'none';
+    els.kioskHeroBg.style.background = BRANDING_CONFIG.defaultHeroGradient;
+  }
+}
+
+function formatStatNumber(value) {
+  if (!Number.isFinite(value) || value < 0) return '—';
+  return value.toLocaleString('en-US');
+}
+
+function setStatValue(el, value) {
+  if (!el) return;
+  el.removeAttribute('data-loading');
+  const formatted = formatStatNumber(value);
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced || el.textContent === '—' || value === 0) {
+    el.textContent = formatted;
+    el.classList.add('is-counting');
+    return;
+  }
+  const duration = 520;
+  const startTime = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - (1 - t) ** 3;
+    el.textContent = formatStatNumber(Math.round(value * eased));
+    if (t < 1) requestAnimationFrame(tick);
+    else {
+      el.textContent = formatted;
+      el.classList.add('is-counting');
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
+async function updateHomeStats() {
+  setStatValue(els.statEmployers, state.attendeeLogos.length);
+  try {
+    const data = await loadJobs();
+    const count = data.meta?.totalJobs ?? data.jobs?.length ?? 0;
+    setStatValue(els.statOpportunities, count);
+  } catch {
+    if (els.statOpportunities) {
+      els.statOpportunities.textContent = '—';
+      els.statOpportunities.setAttribute('data-loading', 'true');
+    }
+  }
+}
+
+function updateClock() {
+  if (!els.kioskClock) return;
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const date = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  els.kioskClock.textContent = `${time} · ${date}`;
+}
+
+function startClock() {
+  updateClock();
+  if (state.clockTimer) clearInterval(state.clockTimer);
+  state.clockTimer = setInterval(updateClock, 30_000);
 }
 
 function getMapUrl() {
@@ -331,7 +439,7 @@ function makeTickerCard(logo) {
   logoWrap.className = 'ticker-card__logo';
   const img = document.createElement('img');
   img.src = logo.src;
-  img.alt = '';
+  img.alt = logo.name || '';
   img.loading = 'lazy';
   img.draggable = false;
   logoWrap.appendChild(img);
@@ -1085,6 +1193,14 @@ function schedulePopup() {
 // ─── EVENT BINDING ───────────────────────────────────────
 function bindEvents() {
   if (els.startButton) els.startButton.addEventListener('click', () => setView('map'));
+  if (els.kioskHeroMapBtn) els.kioskHeroMapBtn.addEventListener('click', () => setView('map'));
+
+  document.querySelectorAll('[data-view-link]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.viewLink;
+      if (view) setView(view);
+    });
+  });
 
   document.querySelectorAll('.sidebar-item[data-view]').forEach((btn) => {
     btn.addEventListener('click', () => setView(btn.dataset.view));
@@ -1154,6 +1270,7 @@ async function loadLogos() {
   }
   buildTicker();
   renderPartnerRow();
+  updateHomeStats();
 }
 
 // ─── LOAD RUNTIME CONFIG ─────────────────────────────────
@@ -1166,9 +1283,11 @@ async function loadRuntimeConfig() {
     const cfg = await loadConfig();
     state.configVersion = cfg.version || 0;
     if (cfg.mapUrl) state.mapUrlOverride = cfg.mapUrl;
+    applyHeroBackground(cfg.homepageBackground);
     state.idleAdPlayer?.checkRemoteTestTrigger?.();
   } catch (err) {
     console.warn('config.json unavailable; using bundled defaults.', err);
+    applyHeroBackground('');
   }
 }
 
@@ -1184,7 +1303,8 @@ async function init() {
   });
   bindEvents();
   await loadRuntimeConfig();
-  loadLogos();
+  startClock();
+  await loadLogos();
   prefetchWebContent(URL_CONFIG.website);
   prefetchWebContent(URL_CONFIG.partners);
   setView('home');

@@ -110,6 +110,7 @@
 
       <nav class="dash-tabs" role="tablist">
         <button class="dash-tab is-active" data-tab="map"       role="tab">Map</button>
+        <button class="dash-tab"           data-tab="design"    role="tab">Kiosk Design</button>
         <button class="dash-tab"           data-tab="partners"  role="tab">Employer Partners</button>
         <button class="dash-tab"           data-tab="attendees" role="tab">Participating Employers</button>
         <button class="dash-tab"           data-tab="jobs"      role="tab">Job Opportunities</button>
@@ -154,6 +155,56 @@
             </div>
             <iframe class="preview-frame" id="map-preview" title="Map preview" loading="lazy"></iframe>
           </div>
+        </section>
+
+        <!-- ─── KIOSK DESIGN TAB ─── -->
+        <section class="dash-panel" data-panel="design">
+          <div class="panel-head">
+            <h2 class="panel-title">Homepage Background</h2>
+            <p class="panel-sub">
+              Upload a portrait image for the kiosk home hero. The file is committed to
+              <code>assets/branding/homepage-background.*</code> and referenced in
+              <code>config.json</code> so every kiosk uses the same background.
+            </p>
+          </div>
+
+          <div class="preview-card branding-preview-card">
+            <div class="preview-head">
+              <span>Current background</span>
+            </div>
+            <div class="branding-preview-frame" id="design-bg-preview-wrap">
+              <img
+                id="design-bg-preview"
+                class="branding-preview-img is-hidden"
+                alt="Current homepage background preview"
+              />
+              <div class="branding-preview-placeholder" id="design-bg-placeholder">
+                No custom background — kiosks use the default light gradient.
+              </div>
+            </div>
+            <p class="field__hint" id="design-bg-path-hint">Loading…</p>
+          </div>
+
+          <form id="design-bg-form" class="map-form" autocomplete="off">
+            <label class="field">
+              <span class="field__label">Replace background image</span>
+              <input
+                type="file"
+                id="design-bg-input"
+                class="field__input field__input--file"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              />
+              <span class="field__hint">
+                Upload a portrait image optimized for the vertical kiosk hero.
+                Recommended: 2160 × 3840 (9:16). Max 10 MB. Formats: JPG, PNG, WebP.
+              </span>
+            </label>
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="design-bg-upload-btn">Upload &amp; commit</button>
+              <button class="btn btn--danger"  type="button" id="design-bg-remove-btn">Remove / reset</button>
+            </div>
+            <div class="inline-toast is-hidden" id="design-bg-toast"></div>
+          </form>
         </section>
 
         <!-- ─── PARTNERS TAB ─── -->

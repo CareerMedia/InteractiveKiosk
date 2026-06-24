@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────
 
 import { MAP_CONFIG } from '../src/config/map.js';
+import { BRANDING_CONFIG } from '../src/config/branding.js';
 import {
   getSavedConnection, saveConnection, clearConnection, inferRepoDefaults,
   validateConnection,
@@ -43,6 +44,8 @@ const JOBS_PATH      = 'data/jobs.json';
 const JOBS_CONFIG_PATH = 'data/jobs-config.json';
 const PARTNERS_DIR   = 'assets/employers/partners';
 const ATTENDEES_DIR  = 'assets/employers/attendees';
+const BRANDING_DIR   = 'assets/branding';
+const HOMEPAGE_BG_BASENAME = 'homepage-background';
 
 // ─── DOM refs ───────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -77,6 +80,16 @@ const mapResetBtn        = $('map-reset-btn');
 const mapToast           = $('map-toast');
 const mapPreviewFrame    = $('map-preview');
 const mapPreviewRefresh  = $('map-preview-refresh');
+
+// Kiosk Design tab
+const designBgForm       = $('design-bg-form');
+const designBgInput      = $('design-bg-input');
+const designBgPreview    = $('design-bg-preview');
+const designBgPlaceholder = $('design-bg-placeholder');
+const designBgPathHint   = $('design-bg-path-hint');
+const designBgUploadBtn  = $('design-bg-upload-btn');
+const designBgRemoveBtn  = $('design-bg-remove-btn');
+const designBgToast      = $('design-bg-toast');
 
 // Sections
 const sections = {
@@ -278,13 +291,16 @@ async function loadConfigFromRepo() {
   return configState;
 }
 
-async function commitConfig({ mapUrl, apiBaseUrl, bumpVersion = true, message }) {
+async function commitConfig({ mapUrl, apiBaseUrl, homepageBackground, bumpVersion = true, message }) {
   const write = async () => {
     const current = configState.data || {};
     const next = {
       ...current,
       mapUrl: mapUrl ?? current.mapUrl ?? MAP_CONFIG.embedUrl,
       apiBaseUrl: apiBaseUrl !== undefined ? String(apiBaseUrl || '').trim() : (current.apiBaseUrl || ''),
+      homepageBackground: homepageBackground !== undefined
+        ? String(homepageBackground || '').trim()
+        : (current.homepageBackground || ''),
       version: bumpVersion ? Number(current.version || 0) + 1 : Number(current.version || 0),
       updatedAt: new Date().toISOString(),
     };
@@ -380,6 +396,179 @@ mapResetBtn.addEventListener('click', async () => {
 });
 
 mapPreviewRefresh.addEventListener('click', refreshMapPreview);
+
+// ─── Kiosk Design tab ───────────────────────────────────
+function extFromFilename(name) {
+  const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m ? m[1] : '';
+}
+
+function validateBrandingFile(file) {
+  if (!file) return { ok: false, error: 'Choose an image file.' };
+  const ext = extFromFilename(file.name);
+  if (!BRANDING_CONFIG.supportedExtensions.includes(ext)) {
+    return { ok: false, error: 'Unsupported format. Use JPG, PNG, or WebP.' };
+  }
+  if (file.size > BRANDING_CONFIG.maxBytes) {
+    return { ok: false, error: 'File is too large. Maximum size is 10 MB.' };
+  }
+  return { ok: true, ext };
+}
+
+function checkPortraitWarnings(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      URL.revokeObjectURL(url);
+      const warnings = [];
+      if (h <= w) warnings.push('Image is not portrait-oriented (height should exceed width).');
+      if (w < 1080 || h < 1600) warnings.push('Image is smaller than recommended 1080×1600.');
+      resolve(warnings);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve([]);
+    };
+    img.src = url;
+  });
+}
+
+async function findExistingHomepageBg() {
+  for (const ext of BRANDING_CONFIG.supportedExtensions) {
+    const path = `${BRANDING_DIR}/${HOMEPAGE_BG_BASENAME}.${ext}`;
+    try {
+      const file = await getFile(conn, path);
+      if (file?.sha) return { path, sha: file.sha, ext };
+    } catch { /* try next extension */ }
+  }
+  return null;
+}
+
+function updateDesignPreview(path) {
+  if (!designBgPreview || !designBgPlaceholder) return;
+  if (path) {
+    designBgPreview.src = rawUrl(conn, path);
+    designBgPreview.classList.remove('is-hidden');
+    designBgPlaceholder.classList.add('is-hidden');
+    if (designBgPathHint) designBgPathHint.textContent = `Active path: ${path}`;
+  } else {
+    designBgPreview.removeAttribute('src');
+    designBgPreview.classList.add('is-hidden');
+    designBgPlaceholder.classList.remove('is-hidden');
+    if (designBgPathHint) designBgPathHint.textContent = 'No custom background in config.json.';
+  }
+}
+
+async function loadDesignTab() {
+  try {
+    await loadConfigFromRepo();
+  } catch (err) {
+    toast(designBgToast, `Could not read config.json: ${err.message}`, 'error', 5000);
+  }
+  const path = configState.data?.homepageBackground || '';
+  updateDesignPreview(path);
+}
+
+async function handleDesignBgUpload(e) {
+  e.preventDefault();
+  const file = designBgInput?.files?.[0];
+  const validation = validateBrandingFile(file);
+  if (!validation.ok) {
+    toast(designBgToast, validation.error, 'error', 6000);
+    return;
+  }
+
+  const warnings = await checkPortraitWarnings(file);
+  if (warnings.length) {
+    const proceed = await askConfirm({
+      title: 'Image dimensions warning',
+      body: `${warnings.join(' ')} You can still upload, but the hero may not look ideal on the kiosk.`,
+      confirmLabel: 'Upload anyway',
+    });
+    if (!proceed) return;
+  }
+
+  const targetPath = `${BRANDING_DIR}/${HOMEPAGE_BG_BASENAME}.${validation.ext}`;
+  const prev = designBgUploadBtn?.textContent;
+  if (designBgUploadBtn) {
+    designBgUploadBtn.disabled = true;
+    designBgUploadBtn.textContent = 'Committing…';
+  }
+
+  try {
+    const existing = await findExistingHomepageBg();
+    if (existing && existing.path !== targetPath) {
+      await deleteFile(conn, {
+        path: existing.path,
+        sha: existing.sha,
+        message: `admin: remove old homepage background ${existing.path}`,
+      });
+    }
+
+    await putBinaryFile(conn, {
+      path: targetPath,
+      blob: file,
+      message: `admin: upload homepage background ${HOMEPAGE_BG_BASENAME}.${validation.ext}`,
+    });
+
+    await commitConfig({
+      homepageBackground: targetPath,
+      bumpVersion: true,
+      message: 'admin: set kiosk homepage background',
+    });
+
+    toast(designBgToast, 'Background committed. Kiosks will pick it up on next load.', 'success', 5000);
+    designBgForm?.reset();
+    updateDesignPreview(targetPath);
+  } catch (err) {
+    toast(designBgToast, `Upload failed: ${err.message}`, 'error', 7000);
+  } finally {
+    if (designBgUploadBtn) {
+      designBgUploadBtn.disabled = false;
+      designBgUploadBtn.textContent = prev;
+    }
+  }
+}
+
+async function handleDesignBgRemove() {
+  const ok = await askConfirm({
+    title: 'Remove homepage background?',
+    body: 'This deletes the committed image from the repo and resets kiosks to the default gradient hero.',
+    confirmLabel: 'Remove',
+  });
+  if (!ok) return;
+
+  if (designBgRemoveBtn) designBgRemoveBtn.disabled = true;
+  try {
+    const existing = await findExistingHomepageBg();
+    if (existing) {
+      await deleteFile(conn, {
+        path: existing.path,
+        sha: existing.sha,
+        message: `admin: remove homepage background ${existing.path}`,
+      });
+    }
+    await commitConfig({
+      homepageBackground: '',
+      bumpVersion: true,
+      message: 'admin: reset kiosk homepage background',
+    });
+    toast(designBgToast, 'Background removed. Kiosks will use the default hero.', 'info', 5000);
+    updateDesignPreview('');
+  } catch (err) {
+    toast(designBgToast, `Remove failed: ${err.message}`, 'error', 7000);
+  } finally {
+    if (designBgRemoveBtn) designBgRemoveBtn.disabled = false;
+  }
+}
+
+function wireDesignTab() {
+  designBgForm?.addEventListener('submit', handleDesignBgUpload);
+  designBgRemoveBtn?.addEventListener('click', handleDesignBgRemove);
+}
 
 // ─── Section rendering ──────────────────────────────────
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'avif', 'gif'];
@@ -1494,8 +1683,10 @@ async function initDashboard() {
   wireSection(sections.attendees);
   wireJobsTab();
   wireAdsTab();
+  wireDesignTab();
   await loadMapTab();
   await Promise.all([
+    loadDesignTab(),
     renderSection(sections.partners),
     renderSection(sections.attendees),
     loadJobsTab(),

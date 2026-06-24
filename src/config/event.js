@@ -1,13 +1,16 @@
 export const EVENT_CONFIG = {
   label: 'Career Fair',
   title: 'Find your next opportunity',
-  date: 'Explore the live event map',
-  heroEyebrow: 'Welcome',
-  heroTitle: 'Find your next opportunity.',
+  date: 'CSUN Career Fair',
+  heroEyebrow: 'CSUN Career Fair',
+  heroTitle: 'Your future starts here.',
   heroDescription:
-    'Discover who is at the fair, explore featured partners, and launch the interactive event map in one tap.',
+    'Explore top employers, discover opportunities, and take the next step toward your future.',
+  heroCta: 'Explore the Live Event Map',
   partnerSubcopy: 'Proud supporters helping power the CSUN Career Center experience.',
-  ctaText: 'Explore the fair map and find employers.',
+  ctaLabel: "Let's get you started.",
+  ctaText: 'Find employers, jobs, and booth locations in seconds.',
+  ctaButton: 'Start Exploring',
   mapToolbarTitle: 'Career Fair Map',
   returnMessage: 'Returns home after a short period of inactivity.',
 };
