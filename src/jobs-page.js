@@ -766,8 +766,7 @@ function openEmailModal() {
   state.emailModalOpen = true;
   state.cartOpen = false;
   if (els.jobsEmailBackdrop) els.jobsEmailBackdrop.classList.remove('is-hidden');
-  if (els.jobsEmailError) els.jobsEmailError.classList.add('is-hidden');
-  if (els.jobsEmailSuccess) els.jobsEmailSuccess.classList.add('is-hidden');
+  hideEmailMessages();
   if (els.jobsEmailForm) els.jobsEmailForm.reset();
   if (state.selected.size > MAX_EMAIL_JOBS) {
     showEmailError(`You can email up to ${MAX_EMAIL_JOBS} jobs at a time. Remove a few from your list and try again.`);
@@ -794,8 +793,7 @@ export function resetJobsSession() {
     els.jobsEmailForm.classList.remove('is-hidden');
     els.jobsEmailForm.reset();
   }
-  if (els.jobsEmailSuccess) els.jobsEmailSuccess.classList.add('is-hidden');
-  if (els.jobsEmailError) els.jobsEmailError.classList.add('is-hidden');
+  hideEmailMessages();
   if (els.jobsEmailSubmit) els.jobsEmailSubmit.disabled = false;
 
   if (state.detailJobId) closeJobDetail();
@@ -829,7 +827,7 @@ async function handleEmailSubmit(e) {
   const submit = els.jobsEmailSubmit;
   const prev = submit?.textContent;
   if (submit) { submit.disabled = true; submit.textContent = 'Sending…'; }
-  if (els.jobsEmailError) els.jobsEmailError.classList.add('is-hidden');
+  hideEmailMessages();
 
   try {
     await sendJobListEmail({
@@ -837,16 +835,13 @@ async function handleEmailSubmit(e) {
       studentEmail: email,
       jobs: [...state.selected],
     });
-    if (els.jobsEmailSuccess) {
-      els.jobsEmailSuccess.classList.remove('is-hidden');
-      els.jobsEmailSuccess.textContent = 'Your job list has been sent. Check your email for the Handshake links.';
-    }
+    showEmailSuccess('Your job list has been sent. Check your email for the Handshake links.');
     if (els.jobsEmailForm) els.jobsEmailForm.classList.add('is-hidden');
     state.selected.clear();
     setTimeout(() => {
       closeEmailModal();
       if (els.jobsEmailForm) els.jobsEmailForm.classList.remove('is-hidden');
-      if (els.jobsEmailSuccess) els.jobsEmailSuccess.classList.add('is-hidden');
+      hideEmailMessages();
       renderJobsPage();
     }, 2200);
   } catch (err) {
@@ -863,10 +858,35 @@ async function handleEmailSubmit(e) {
   }
 }
 
+function hideEmailMessages() {
+  if (els.jobsEmailError) {
+    els.jobsEmailError.textContent = '';
+    els.jobsEmailError.classList.add('is-hidden');
+  }
+  if (els.jobsEmailSuccess) {
+    els.jobsEmailSuccess.textContent = '';
+    els.jobsEmailSuccess.classList.add('is-hidden');
+  }
+}
+
 function showEmailError(msg) {
   if (!els.jobsEmailError) return;
+  if (els.jobsEmailSuccess) {
+    els.jobsEmailSuccess.textContent = '';
+    els.jobsEmailSuccess.classList.add('is-hidden');
+  }
   els.jobsEmailError.textContent = msg;
   els.jobsEmailError.classList.remove('is-hidden');
+}
+
+function showEmailSuccess(msg) {
+  if (!els.jobsEmailSuccess) return;
+  if (els.jobsEmailError) {
+    els.jobsEmailError.textContent = '';
+    els.jobsEmailError.classList.add('is-hidden');
+  }
+  els.jobsEmailSuccess.textContent = msg;
+  els.jobsEmailSuccess.classList.remove('is-hidden');
 }
 
 export function getJobsPageElements() {

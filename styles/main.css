@@ -2128,6 +2128,10 @@ button, a { -webkit-tap-highlight-color: transparent; font: inherit; border: 0; 
   font-size: 0.9rem;
   margin-bottom: 12px;
 }
+.jobs-email-error.is-hidden,
+.jobs-email-success.is-hidden {
+  display: none;
+}
 .jobs-email-success {
   padding: 12px;
   background: #f0fff4;
