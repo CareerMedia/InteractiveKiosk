@@ -32,6 +32,8 @@ const state = {
   checkInLoaded: false,
   checkInLoadState: 'idle',
   checkInTargetUrl: '',
+  showEmployerCount: true,
+  showJobCount: true,
   clockTimer: null,
   clockSyncTimer: null,
   clockOffsetMs: 0,
@@ -59,8 +61,12 @@ const els = {
   kioskHeroDesc:      document.getElementById('kiosk-hero-desc'),
   kioskHeroCtaLabel:  document.getElementById('kiosk-hero-cta-label'),
   kioskHeroMapBtn:    document.getElementById('kiosk-hero-map-btn'),
+  kioskStats:         document.getElementById('kiosk-stats'),
   statEmployers:      document.getElementById('stat-employers'),
+  statEmployersWrap:  document.getElementById('stat-employers-wrap'),
   statOpportunities:  document.getElementById('stat-opportunities'),
+  statOpportunitiesWrap: document.getElementById('stat-opportunities-wrap'),
+  statDivider:        document.getElementById('stat-divider'),
 
   // Home view content
   partnerLogosRow:    document.getElementById('partner-logos-row'),
@@ -280,8 +286,21 @@ function setStatValue(el, value) {
   requestAnimationFrame(tick);
 }
 
+function applyHomeStatsVisibility() {
+  const showEmployers = state.showEmployerCount !== false;
+  const showJobs = state.showJobCount !== false;
+  els.statEmployersWrap?.classList.toggle('is-hidden', !showEmployers);
+  els.statOpportunitiesWrap?.classList.toggle('is-hidden', !showJobs);
+  els.statDivider?.classList.toggle('is-hidden', !(showEmployers && showJobs));
+  els.kioskStats?.classList.toggle('is-hidden', !showEmployers && !showJobs);
+}
+
 async function updateHomeStats() {
-  setStatValue(els.statEmployers, state.attendeeLogos.length);
+  applyHomeStatsVisibility();
+  if (state.showEmployerCount !== false) {
+    setStatValue(els.statEmployers, state.attendeeLogos.length);
+  }
+  if (state.showJobCount === false) return;
   try {
     const data = await loadJobs();
     const count = data.meta?.totalJobs ?? data.jobs?.length ?? 0;
@@ -1705,6 +1724,9 @@ async function loadRuntimeConfig() {
       url: cfg.checkInUrl || '',
       embed: cfg.checkInEmbed || '',
     };
+    state.showEmployerCount = cfg.showEmployerCount !== false;
+    state.showJobCount = cfg.showJobCount !== false;
+    applyHomeStatsVisibility();
     // Only (re)load the embed if the Check In view is currently visible — never
     // eagerly, so the form can never appear over the rest of the kiosk.
     state.checkInLoaded = false;
@@ -1714,6 +1736,9 @@ async function loadRuntimeConfig() {
   } catch (err) {
     console.warn('config.json unavailable; using bundled defaults.', err);
     applyHeroBackground('');
+    state.showEmployerCount = true;
+    state.showJobCount = true;
+    applyHomeStatsVisibility();
   }
 }
 

@@ -6,11 +6,14 @@ import {
   emptyJobsData,
   channelFromFastXml,
 } from '../../src/shared/jobs-parser.js';
+import { getGithubJsonFile, hasGithubCommitSupport } from './github-commit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 export const JOBS_PATH = path.join(ROOT, 'data', 'jobs.json');
 export const JOBS_CONFIG_PATH = path.join(ROOT, 'data', 'jobs-config.json');
+const JOBS_REPO_PATH = 'data/jobs.json';
+const JOBS_CONFIG_REPO_PATH = 'data/jobs-config.json';
 
 /** Vercel/Lambda deploy bundles are read-only; job data is committed to GitHub by admin. */
 export function isEphemeralRuntime() {
@@ -33,6 +36,12 @@ export async function writeJson(filePath, data) {
 }
 
 export async function readJobsConfig() {
+  if (isEphemeralRuntime() && hasGithubCommitSupport()) {
+    try {
+      const { data } = await getGithubJsonFile(JOBS_CONFIG_REPO_PATH);
+      if (data) return data;
+    } catch { /* fall through to bundled file */ }
+  }
   return readJson(JOBS_CONFIG_PATH, { feedUrl: '', updatedAt: null });
 }
 
@@ -41,6 +50,14 @@ export async function writeJobsConfig(config) {
 }
 
 export async function readJobs() {
+  // On Vercel the deploy bundle of jobs.json goes stale after admin sync/clear.
+  // Prefer the live GitHub copy when a token is configured.
+  if (isEphemeralRuntime() && hasGithubCommitSupport()) {
+    try {
+      const { data } = await getGithubJsonFile(JOBS_REPO_PATH);
+      if (data && (Array.isArray(data.jobs) || data.meta)) return data;
+    } catch { /* fall through to bundled file */ }
+  }
   return readJson(JOBS_PATH, emptyJobsData());
 }
 

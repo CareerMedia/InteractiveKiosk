@@ -112,6 +112,7 @@
         <button class="dash-tab is-active" data-tab="map"       role="tab">Map</button>
         <button class="dash-tab"           data-tab="design"    role="tab">Kiosk Design</button>
         <button class="dash-tab"           data-tab="checkin"   role="tab">Check-In</button>
+        <button class="dash-tab"           data-tab="features"  role="tab">Features</button>
         <button class="dash-tab"           data-tab="partners"  role="tab">Employer Partners</button>
         <button class="dash-tab"           data-tab="attendees" role="tab">Participating Employers</button>
         <button class="dash-tab"           data-tab="jobs"      role="tab">Job Opportunities</button>
@@ -307,6 +308,43 @@
               <button class="btn btn--ghost"   type="button" id="checkin-clear-btn">Clear</button>
             </div>
             <div class="inline-toast is-hidden" id="checkin-toast"></div>
+          </form>
+        </section>
+
+        <!-- ─── FEATURES TAB ─── -->
+        <section class="dash-panel" data-panel="features">
+          <div class="panel-head">
+            <h2 class="panel-title">Homepage features</h2>
+            <p class="panel-sub">
+              Show or hide pieces of the home screen stats pill. Changes save to
+              <code>config.json</code> and apply on every kiosk’s next load.
+            </p>
+          </div>
+
+          <form id="features-form" class="map-form" autocomplete="off">
+            <div class="feature-toggles">
+              <label class="feature-toggle">
+                <input type="checkbox" id="feature-employer-count" checked />
+                <span class="feature-toggle__switch" aria-hidden="true"></span>
+                <span class="feature-toggle__copy">
+                  <span class="feature-toggle__title">Employer counter</span>
+                  <span class="feature-toggle__hint">The “Employers” number in the home hero pill</span>
+                </span>
+              </label>
+              <label class="feature-toggle">
+                <input type="checkbox" id="feature-job-count" checked />
+                <span class="feature-toggle__switch" aria-hidden="true"></span>
+                <span class="feature-toggle__copy">
+                  <span class="feature-toggle__title">Job counter</span>
+                  <span class="feature-toggle__hint">The “Opportunities” number in the home hero pill</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="panel-actions">
+              <button class="btn btn--primary" type="submit" id="features-save-btn">Commit change</button>
+            </div>
+            <div class="inline-toast is-hidden" id="features-toast"></div>
           </form>
         </section>
 

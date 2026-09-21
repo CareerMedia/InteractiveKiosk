@@ -173,11 +173,46 @@ export async function getFile(conn, filePath) {
   }
 }
 
+// Contents API omits base64 `content` for files over ~1 MB (encoding: "none").
+// Fetch the raw body with the same auth headers so admin can still read jobs.json.
+async function getFileRawText(conn, filePath) {
+  const path = `/repos/${conn.owner}/${conn.repo}/contents/${encodeURI(filePath)}?ref=${encodeURIComponent(conn.branch)}`;
+  const res = await fetch(`${API}${path}`, {
+    headers: {
+      ...headers(conn.token),
+      Accept: 'application/vnd.github.raw',
+    },
+  });
+  if (!res.ok) {
+    const err = new Error(`GitHub ${res.status}: ${res.statusText}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.text();
+}
+
 export async function getJsonFile(conn, filePath) {
   const file = await getFile(conn, filePath);
-  if (!file || !file.content) return { data: null, sha: null, file: null };
+  if (!file) return { data: null, sha: null, file: null };
+
+  let text = null;
+  if (file.content && file.encoding !== 'none') {
+    try {
+      text = base64ToUtf8(file.content.replace(/\n/g, ''));
+    } catch {
+      text = null;
+    }
+  }
+  if (text == null) {
+    try {
+      text = await getFileRawText(conn, filePath);
+    } catch (err) {
+      if (err.status === 404) return { data: null, sha: file.sha || null, file };
+      throw err;
+    }
+  }
+
   try {
-    const text = base64ToUtf8(file.content.replace(/\n/g, ''));
     return { data: JSON.parse(text), sha: file.sha, file };
   } catch {
     return { data: null, sha: file.sha, file };

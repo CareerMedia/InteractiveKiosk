@@ -114,6 +114,13 @@ const checkInClearBtn    = $('checkin-clear-btn');
 const checkInToast       = $('checkin-toast');
 const checkInModeRadios  = document.querySelectorAll('input[name="checkin-mode"]');
 
+// Features tab
+const featuresForm            = $('features-form');
+const featureEmployerCount    = $('feature-employer-count');
+const featureJobCount         = $('feature-job-count');
+const featuresSaveBtn         = $('features-save-btn');
+const featuresToast           = $('features-toast');
+
 // Sections
 const sections = {
   partners: {
@@ -314,7 +321,7 @@ async function loadConfigFromRepo() {
   return configState;
 }
 
-async function commitConfig({ mapUrl, apiBaseUrl, homepageBackground, mobileMapQr, checkInMode, checkInUrl, checkInEmbed, bumpVersion = true, message }) {
+async function commitConfig({ mapUrl, apiBaseUrl, homepageBackground, mobileMapQr, checkInMode, checkInUrl, checkInEmbed, showEmployerCount, showJobCount, bumpVersion = true, message }) {
   const write = async () => {
     const current = configState.data || {};
     const next = {
@@ -336,6 +343,12 @@ async function commitConfig({ mapUrl, apiBaseUrl, homepageBackground, mobileMapQ
       checkInEmbed: checkInEmbed !== undefined
         ? String(checkInEmbed || '')
         : (current.checkInEmbed || ''),
+      showEmployerCount: showEmployerCount !== undefined
+        ? Boolean(showEmployerCount)
+        : (current.showEmployerCount !== false),
+      showJobCount: showJobCount !== undefined
+        ? Boolean(showJobCount)
+        : (current.showJobCount !== false),
       version: bumpVersion ? Number(current.version || 0) + 1 : Number(current.version || 0),
       updatedAt: new Date().toISOString(),
     };
@@ -778,6 +791,46 @@ function wireCheckInTab() {
   });
 }
 
+// ─── Features tab ───────────────────────────────────────
+async function loadFeaturesTab() {
+  try {
+    await loadConfigFromRepo();
+  } catch (err) {
+    toast(featuresToast, `Could not read config.json: ${err.message}`, 'error', 5000);
+  }
+  const data = configState.data || {};
+  if (featureEmployerCount) featureEmployerCount.checked = data.showEmployerCount !== false;
+  if (featureJobCount) featureJobCount.checked = data.showJobCount !== false;
+}
+
+async function handleFeaturesSave(e) {
+  e.preventDefault();
+  const prev = featuresSaveBtn?.textContent;
+  if (featuresSaveBtn) {
+    featuresSaveBtn.disabled = true;
+    featuresSaveBtn.textContent = 'Committing…';
+  }
+  try {
+    await commitConfig({
+      showEmployerCount: Boolean(featureEmployerCount?.checked),
+      showJobCount: Boolean(featureJobCount?.checked),
+      message: 'admin: update homepage feature visibility',
+    });
+    toast(featuresToast, 'Committed. Kiosks will pick this up on their next load.', 'success', 4200);
+  } catch (err) {
+    toast(featuresToast, `Commit failed: ${err.message}`, 'error', 6000);
+  } finally {
+    if (featuresSaveBtn) {
+      featuresSaveBtn.disabled = false;
+      featuresSaveBtn.textContent = prev;
+    }
+  }
+}
+
+function wireFeaturesTab() {
+  featuresForm?.addEventListener('submit', handleFeaturesSave);
+}
+
 // ─── Section rendering ──────────────────────────────────
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'avif', 'gif'];
 function isImageFilename(name) {
@@ -1072,7 +1125,8 @@ function renderJobsPreview() {
   const jobs = data.jobs || [];
   const meta = data.meta || {};
 
-  jobsTotalCount.textContent = String(meta.totalJobs ?? jobs.length);
+  // Prefer the actual list length — meta.totalJobs can lag or be missing after large-file loads.
+  jobsTotalCount.textContent = String(jobs.length || meta.totalJobs || 0);
   jobsFeedTitle.textContent = meta.feedTitle || '—';
   jobsLastSynced.textContent = meta.lastSyncedAt
     ? new Date(meta.lastSyncedAt).toLocaleString()
@@ -1911,10 +1965,12 @@ async function initDashboard() {
   wireAdsTab();
   wireDesignTab();
   wireCheckInTab();
+  wireFeaturesTab();
   await loadMapTab();
   await Promise.all([
     loadDesignTab(),
     loadCheckInTab(),
+    loadFeaturesTab(),
     renderSection(sections.partners),
     renderSection(sections.attendees),
     loadJobsTab(),

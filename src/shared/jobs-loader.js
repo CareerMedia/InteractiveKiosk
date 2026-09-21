@@ -20,6 +20,16 @@ let _jobsPromise = null;
 export function loadJobs({ force = false } = {}) {
   if (_jobsPromise && !force) return _jobsPromise;
   _jobsPromise = (async () => {
+    // Prefer the committed repo file (same origin / GitHub Pages). Admin sync
+    // writes here; the Vercel API bundle can lag behind after clear/sync.
+    try {
+      const res = await fetch(jobsJsonUrl(), { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (Array.isArray(data.jobs) || data.meta)) return data;
+      }
+    } catch { /* fall through */ }
+
     const { available } = await resolveApiBase({ force });
     if (available) {
       try {
@@ -27,13 +37,7 @@ export function loadJobs({ force = false } = {}) {
         if (res.ok) return res.json();
       } catch { /* fall through */ }
     }
-    try {
-      const res = await fetch(jobsJsonUrl(), { cache: 'no-store' });
-      if (!res.ok) return emptyPayload();
-      return res.json();
-    } catch {
-      return emptyPayload();
-    }
+    return emptyPayload();
   })();
   return _jobsPromise;
 }

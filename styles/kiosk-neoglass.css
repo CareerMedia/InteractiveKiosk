@@ -789,6 +789,12 @@
   background: linear-gradient(to bottom, transparent, var(--kiosk-border), transparent);
 }
 
+.kiosk-stats.is-hidden,
+.kiosk-stat.is-hidden,
+.kiosk-stat__divider.is-hidden {
+  display: none;
+}
+
 /* ─── Sections ────────────────────────────────────────────────────────── */
 .kiosk-section {
   padding: 0 var(--kiosk-content-pad-x) 6px;

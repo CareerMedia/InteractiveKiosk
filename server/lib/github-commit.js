@@ -51,8 +51,26 @@ export async function getGithubJsonFile(filePath) {
   const path = `/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURI(filePath)}?ref=${encodeURIComponent(cfg.branch)}`;
   try {
     const file = await ghFetch(cfg, path);
-    if (!file?.content) return { data: null, sha: file?.sha || null };
-    const text = Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf8');
+    if (!file) return { data: null, sha: null };
+
+    let text = null;
+    if (file.content && file.encoding !== 'none') {
+      text = Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf8');
+    } else {
+      // Files over ~1 MB omit base64 content — fetch raw.
+      const res = await fetch(`${API}${path}`, {
+        headers: {
+          ...headers(cfg.token),
+          Accept: 'application/vnd.github.raw',
+        },
+      });
+      if (!res.ok) {
+        if (res.status === 404) return { data: null, sha: file.sha || null };
+        throw new Error(`GitHub ${res.status}: ${res.statusText}`);
+      }
+      text = await res.text();
+    }
+
     return { data: JSON.parse(text), sha: file.sha };
   } catch (err) {
     if (err.status === 404) return { data: null, sha: null };

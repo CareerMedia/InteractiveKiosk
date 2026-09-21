@@ -3,7 +3,7 @@
 //
 // The kiosk and /mobile page both fetch `config.json` from the repo at
 // startup. That file is written by the /admin dashboard and contains any
-// admin-edited settings (currently just the map URL, plus a `version`
+// admin-edited settings (map URL, homepage feature flags, plus a `version`
 // counter the kiosk uses to invalidate its logo cache when admin commits).
 //
 // config.json lives at the *same origin* as whatever page loads this
@@ -43,6 +43,9 @@ export function loadConfig({ force = false } = {}) {
         checkInUrl: typeof data.checkInUrl === 'string' ? data.checkInUrl.trim() : '',
         checkInEmbed: typeof data.checkInEmbed === 'string' ? data.checkInEmbed : '',
         mobileMapQr: typeof data.mobileMapQr === 'string' ? data.mobileMapQr.trim() : '',
+        // Missing keys default to visible so existing configs keep current behaviour.
+        showEmployerCount: data.showEmployerCount !== false,
+        showJobCount: data.showJobCount !== false,
         version:   Number.isFinite(data.version) ? data.version : 0,
         updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
       };
@@ -62,6 +65,8 @@ function fallbackConfig() {
     checkInUrl: '',
     checkInEmbed: '',
     mobileMapQr: '',
+    showEmployerCount: true,
+    showJobCount: true,
     version: 0,
     updatedAt: null,
   };
